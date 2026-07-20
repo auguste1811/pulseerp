@@ -1,0 +1,1 @@
+import { redirect } from "next/navigation"; import { readSession } from "@/lib/auth"; export default async function Page(){redirect((await readSession())?"/dashboard":"/login")}

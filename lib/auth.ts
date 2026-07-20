@@ -1,0 +1,6 @@
+import { SignJWT,jwtVerify } from "jose";import { cookies } from "next/headers";import { redirect } from "next/navigation";import { query } from "@/lib/db";
+const secret=new TextEncoder().encode(process.env.JWT_SECRET||"development-secret");export type SessionPayload={userId:string;companyId:string;email:string};
+export async function createSession(p:SessionPayload){const t=await new SignJWT(p).setProtectedHeader({alg:"HS256"}).setIssuedAt().setExpirationTime("7d").sign(secret);(await cookies()).set("pulse_session",t,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",path:"/",maxAge:604800});}
+export async function readSession(){try{const t=(await cookies()).get("pulse_session")?.value;if(!t)return null;return (await jwtVerify(t,secret)).payload as SessionPayload}catch{return null}}
+export async function requireSession(){const s=await readSession();if(!s)redirect('/login');return s}
+export async function currentContext(){const s=await requireSession();const rows=await query<any>(`SELECT u.id user_id,u.first_name,u.last_name,u.email,c.id company_id,c.name company_name,cm.role FROM company_members cm JOIN users u ON u.id=cm.user_id JOIN companies c ON c.id=cm.company_id WHERE u.id=$1 AND c.id=$2`,[s.userId,s.companyId]);if(!rows[0])redirect('/login');return rows[0]}
