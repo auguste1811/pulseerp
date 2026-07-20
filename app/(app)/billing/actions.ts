@@ -7,6 +7,7 @@ import { z } from "zod";
 import { currentContext } from "@/lib/auth";
 import { emitAutomationEvent } from "@/lib/automation-engine";
 import { pool, query } from "@/lib/db";
+import type { PoolClient } from "pg";
 
 const documentTypes = ["QUOTE", "INVOICE"] as const;
 const documentStatuses = [
@@ -32,12 +33,12 @@ const createSchema = z.object({
 });
 
 async function nextDocumentNumber(
-  client: any,
+  client: PoolClient,
   companyId: string,
   documentType: "QUOTE" | "INVOICE",
 ): Promise<string> {
   const year = new Date().getFullYear();
-
+  
   const result = await client.query<{ current_value: number }>(
     `
     INSERT INTO document_sequences (

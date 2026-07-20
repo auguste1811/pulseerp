@@ -1,0 +1,15 @@
+CORRECTION VERCEL — INSTALLATION NPM
+
+1. Copie package.json et vercel.json à la racine de PulseERP.
+2. Depuis le projet :
+   rm -rf node_modules .next
+   npm install
+   npm run build
+3. Commit :
+   git add package.json package-lock.json vercel.json
+   git commit -m "fix: stabiliser installation Vercel"
+   git push origin main
+4. Dans Vercel, vérifie Node.js 22.x puis redéploie sans cache.
+
+Le postinstall Prisma a été retiré. Prisma Client est généré pendant
+npm run vercel-build, après l'installation des dépendances.
