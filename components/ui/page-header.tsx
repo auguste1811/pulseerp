@@ -1,0 +1,2 @@
+import type { ReactNode } from "react";
+export function PageHeader({eyebrow,title,description,actions}:{eyebrow?:string;title:ReactNode;description?:string;actions?:ReactNode}){return <section className="pe-page-header"><div>{eyebrow&&<p className="pe-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{description&&<p className="pe-page-description">{description}</p>}</div>{actions&&<div className="pe-page-actions">{actions}</div>}</section>}

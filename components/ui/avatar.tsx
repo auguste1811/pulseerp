@@ -1,0 +1,1 @@
+export function Avatar({name,size="md"}:{name:string;size?:"sm"|"md"|"lg"}){const initials=name.split(/\s+/).map(v=>v[0]).join("").slice(0,2).toUpperCase();return <span className={`pe-avatar pe-avatar-${size}`}>{initials}</span>}

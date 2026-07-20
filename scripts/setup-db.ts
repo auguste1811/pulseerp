@@ -199,11 +199,142 @@ CREATE TABLE IF NOT EXISTS document_sequences (
 
 
 
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'TODO',
+  priority TEXT NOT NULL DEFAULT 'MEDIUM',
+  due_date DATE,
+  assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS tasks_company_assignee_idx
 ON tasks(company_id, assigned_user_id, status);
+
+
+
+CREATE TABLE IF NOT EXISTS integration_connections (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  provider TEXT NOT NULL,
+  account_email TEXT,
+  account_name TEXT,
+  encrypted_access_token TEXT,
+  encrypted_refresh_token TEXT,
+  token_expires_at TIMESTAMPTZ,
+  scopes TEXT[] NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'CONNECTED',
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  last_sync_at TIMESTAMPTZ,
+  last_sync_status TEXT,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(company_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS integration_connections_company_idx
+ON integration_connections(company_id, provider, status);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  event_type TEXT NOT NULL DEFAULT 'MEETING',
+  status TEXT NOT NULL DEFAULT 'PLANNED',
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  location TEXT,
+  reminder_minutes INTEGER NOT NULL DEFAULT 30,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  external_provider TEXT,
+  external_id TEXT,
+  external_url TEXT,
+  external_updated_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS calendar_events_company_start_idx
+ON calendar_events(company_id, start_at);
+
+CREATE INDEX IF NOT EXISTS calendar_events_contact_idx
+ON calendar_events(company_id, contact_id);
+
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_provider TEXT;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_url TEXT;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_updated_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS calendar_events_external_unique_idx
+ON calendar_events(company_id, external_provider, external_id)
+WHERE external_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS automations (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  trigger_type TEXT NOT NULL,
+  trigger_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  conditions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  last_run_at TIMESTAMPTZ,
+  last_run_status TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS automations_company_active_idx
+ON automations(company_id, is_active);
+
+CREATE INDEX IF NOT EXISTS automations_company_trigger_idx
+ON automations(company_id, trigger_type);
+
+CREATE TABLE IF NOT EXISTS automation_runs (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+  trigger_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL DEFAULT 'RUNNING',
+  logs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  error_message TEXT,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  finished_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS automation_runs_company_started_idx
+ON automation_runs(company_id, started_at DESC);
+
+CREATE INDEX IF NOT EXISTS automation_runs_automation_idx
+ON automation_runs(automation_id, started_at DESC);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'INFO',
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS notifications_user_read_idx
+ON notifications(user_id, is_read, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS invitations (
   id TEXT PRIMARY KEY,
@@ -241,40 +372,7 @@ ON documents(company_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS documents_contact_idx
 ON documents(company_id, contact_id);
 
-CREATE TABLE IF NOT EXISTS calendar_events (
-  id TEXT PRIMARY KEY,
-  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
-  assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  event_type TEXT NOT NULL DEFAULT 'MEETING',
-  status TEXT NOT NULL DEFAULT 'PLANNED',
-  start_at TIMESTAMPTZ NOT NULL,
-  end_at TIMESTAMPTZ NOT NULL,
-  location TEXT,
-  reminder_minutes INTEGER NOT NULL DEFAULT 30,
-  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
-CREATE INDEX IF NOT EXISTS calendar_events_company_start_idx
-ON calendar_events(company_id, start_at);
-
-CREATE INDEX IF NOT EXISTS calendar_events_contact_idx
-ON calendar_events(company_id, contact_id);
-
-CREATE TABLE IF NOT EXISTS tasks (
-  id TEXT PRIMARY KEY,
-  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT NOT NULL DEFAULT 'TODO',
-  priority TEXT NOT NULL DEFAULT 'MEDIUM',
-  due_date DATE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 `;
 
 async function main() {
@@ -398,7 +496,7 @@ async function main() {
     }
 
     await client.query("COMMIT");
-    console.log("Base PulseERP Paramètres v0.8.0 initialisée.");
+    console.log("Base PulseERP v1.1.1 initialisée avec succès.");
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { currentContext } from "@/lib/auth";
+import { emitAutomationEvent } from "@/lib/automation-engine";
 import { pool, query } from "@/lib/db";
 
 const documentTypes = ["QUOTE", "INVOICE"] as const;
@@ -220,6 +221,20 @@ export async function createSalesDocument(formData: FormData) {
     client.release();
   }
 
+  await emitAutomationEvent(
+    member.company_id,
+    "INVOICE_CREATED",
+    {
+      invoice: {
+        id: documentId,
+        type: parsed.data.documentType,
+        total: lineTotal,
+      },
+      contactId: parsed.data.contactId,
+    },
+    member.user_id,
+  );
+
   revalidatePath("/billing");
   redirect(`/billing/${documentId}?created=1`);
 }
@@ -340,14 +355,32 @@ export async function updateDocumentStatus(formData: FormData) {
     redirect(`/billing/${documentId}?error=status`);
   }
 
-  await query(
+  const updated = await query<any>(
     `
     UPDATE sales_documents
     SET status = $3, updated_at = NOW()
     WHERE id = $1 AND company_id = $2
+    RETURNING id, document_number, total, contact_id
     `,
     [documentId, member.company_id, status],
   );
+
+  if (status === "PAID" && updated[0]) {
+    await emitAutomationEvent(
+      member.company_id,
+      "INVOICE_PAID",
+      {
+        invoice: {
+          id: updated[0].id,
+          number: updated[0].document_number,
+          total: Number(updated[0].total),
+          status: "PAID",
+        },
+        contactId: updated[0].contact_id,
+      },
+      member.user_id,
+    );
+  }
 
   revalidatePath("/billing");
   revalidatePath(`/billing/${documentId}`);

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { currentContext } from "@/lib/auth";
 import { parseCsv, type CsvRow } from "@/lib/csv";
+import { emitAutomationEvent } from "@/lib/automation-engine";
 import { pool, query } from "@/lib/db";
 
 const contactSchema = z.object({
@@ -120,6 +121,24 @@ export async function createContact(formData: FormData) {
       member.user_id,
       `${parsed.data.firstName} ${parsed.data.lastName} a été ajouté au CRM.`,
     ],
+  );
+
+  await emitAutomationEvent(
+    member.company_id,
+    "CONTACT_CREATED",
+    {
+      contact: {
+        id: contactId,
+        first_name: parsed.data.firstName,
+        last_name: parsed.data.lastName,
+        email: parsed.data.email || null,
+        phone: parsed.data.phone || null,
+        source: parsed.data.source || null,
+        status: parsed.data.status,
+        value: parsed.data.value,
+      },
+    },
+    member.user_id,
   );
 
   revalidatePath("/contacts");
@@ -319,6 +338,21 @@ export async function moveContactStage(contactId: string, status: string) {
       member.user_id,
       `Le contact est passé de ${existing[0].status} à ${status}.`,
     ],
+  );
+
+  await emitAutomationEvent(
+    member.company_id,
+    "CONTACT_STATUS_CHANGED",
+    {
+      contact: {
+        id: contactId,
+        first_name: existing[0].first_name,
+        last_name: existing[0].last_name,
+        previous_status: existing[0].status,
+        status,
+      },
+    },
+    member.user_id,
   );
 
   revalidatePath("/contacts");
