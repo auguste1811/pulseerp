@@ -16,7 +16,20 @@ export default async function PrintableDocument({
       `
       SELECT d.*, c.first_name, c.last_name, c.company_name,
              c.email, c.phone, c.address, c.siret, c.vat_number,
-             co.name AS issuer_name
+             co.name AS issuer_name,
+             co.legal_name AS issuer_legal_name,
+             co.address AS issuer_address,
+             co.postal_code AS issuer_postal_code,
+             co.city AS issuer_city,
+             co.country AS issuer_country,
+             co.email AS issuer_email,
+             co.phone AS issuer_phone,
+             co.website AS issuer_website,
+             co.siret AS issuer_siret,
+             co.vat_number AS issuer_vat_number,
+             co.iban AS issuer_iban,
+             co.bic AS issuer_bic,
+             co.invoice_footer AS issuer_footer
       FROM sales_documents d
       JOIN companies co ON co.id = d.company_id
       LEFT JOIN contacts c ON c.id = d.contact_id
@@ -55,7 +68,16 @@ export default async function PrintableDocument({
       <section className="print-parties">
         <div>
           <span>Émetteur</span>
-          <strong>{document.issuer_name}</strong>
+          <strong>{document.issuer_legal_name || document.issuer_name}</strong>
+          {document.issuer_address && <p>{document.issuer_address}</p>}
+          {(document.issuer_postal_code || document.issuer_city) && (
+            <p>{document.issuer_postal_code} {document.issuer_city}</p>
+          )}
+          {document.issuer_country && <p>{document.issuer_country}</p>}
+          {document.issuer_email && <p>{document.issuer_email}</p>}
+          {document.issuer_phone && <p>{document.issuer_phone}</p>}
+          {document.issuer_siret && <p>SIRET : {document.issuer_siret}</p>}
+          {document.issuer_vat_number && <p>TVA : {document.issuer_vat_number}</p>}
         </div>
         <div>
           <span>Destinataire</span>
@@ -102,10 +124,25 @@ export default async function PrintableDocument({
         <div><span>Total TTC</span><strong>{euro(Number(document.total))}</strong></div>
       </section>
 
+      {(document.issuer_iban || document.issuer_bic) && (
+        <section className="print-notes">
+          <strong>Coordonnées bancaires</strong>
+          {document.issuer_iban && <p>IBAN : {document.issuer_iban}</p>}
+          {document.issuer_bic && <p>BIC : {document.issuer_bic}</p>}
+        </section>
+      )}
+
       {document.notes && (
         <section className="print-notes">
           <strong>Notes</strong>
           <p>{document.notes}</p>
+        </section>
+      )}
+
+      {document.issuer_footer && (
+        <section className="print-notes">
+          <strong>Mentions</strong>
+          <p>{document.issuer_footer}</p>
         </section>
       )}
 

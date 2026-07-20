@@ -167,6 +167,26 @@ CREATE TABLE IF NOT EXISTS sales_document_items (
 CREATE INDEX IF NOT EXISTS sales_document_items_document_idx
 ON sales_document_items(document_id, position);
 
+
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS legal_name TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT 'France';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS website TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS siret TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS vat_number TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS iban TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS bic TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS invoice_footer TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS payment_terms_days INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS quote_validity_days INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS quote_prefix TEXT NOT NULL DEFAULT 'DEV';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS invoice_prefix TEXT NOT NULL DEFAULT 'FAC';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE TABLE IF NOT EXISTS document_sequences (
   company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   document_type TEXT NOT NULL CHECK (document_type IN ('QUOTE','INVOICE')),
@@ -177,6 +197,28 @@ CREATE TABLE IF NOT EXISTS document_sequences (
 
 
 
+
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS tasks_company_assignee_idx
+ON tasks(company_id, assigned_user_id, status);
+
+CREATE TABLE IF NOT EXISTS invitations (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'EMPLOYEE',
+  token TEXT UNIQUE NOT NULL,
+  invited_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS invitations_company_email_idx
+ON invitations(company_id, LOWER(email));
 
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY,
@@ -356,7 +398,7 @@ async function main() {
     }
 
     await client.query("COMMIT");
-    console.log("Base PulseERP Documents v0.6.0 initialisée.");
+    console.log("Base PulseERP Paramètres v0.8.0 initialisée.");
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

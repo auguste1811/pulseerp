@@ -12,10 +12,24 @@ const columns = [
 
 export default async function Tasks() {
   const member = await currentContext();
-  const rows = await query<any>(
-    "SELECT * FROM tasks WHERE company_id=$1 ORDER BY created_at DESC",
-    [member.company_id],
-  );
+  const [rows, members] = await Promise.all([
+    query<any>(
+      `SELECT t.*, u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
+       FROM tasks t
+       LEFT JOIN users u ON u.id=t.assigned_user_id
+       WHERE t.company_id=$1
+       ORDER BY t.created_at DESC`,
+      [member.company_id],
+    ),
+    query<any>(
+      `SELECT u.id, u.first_name, u.last_name
+       FROM company_members cm
+       JOIN users u ON u.id=cm.user_id
+       WHERE cm.company_id=$1 AND u.is_active=TRUE
+       ORDER BY u.last_name, u.first_name`,
+      [member.company_id],
+    ),
+  ]);
 
   return (
     <>
@@ -36,6 +50,14 @@ export default async function Tasks() {
           <select name="status">{columns.map((column) => <option value={column.value} key={column.value}>{column.label}</option>)}</select>
           <select name="priority"><option value="LOW">Basse</option><option value="MEDIUM">Moyenne</option><option value="HIGH">Haute</option><option value="URGENT">Urgente</option></select>
           <input name="dueDate" type="date" />
+          <select name="assignedUserId">
+            <option value="">Non assignée</option>
+            {members.map((person) => (
+              <option value={person.id} key={person.id}>
+                {person.first_name} {person.last_name}
+              </option>
+            ))}
+          </select>
           <button className="primary-action" type="submit">Ajouter</button>
         </form>
       </article>
@@ -60,7 +82,11 @@ export default async function Tasks() {
                     {task.description && <p>{task.description}</p>}
                     <div className="kanban-card-footer">
                       <span><Icon name="calendar" size={14}/>{task.due_date ? new Date(task.due_date).toLocaleDateString("fr-FR") : "Sans date"}</span>
-                      <span className="mini-avatar">{member.first_name[0]}{member.last_name[0]}</span>
+                      <span className="mini-avatar">
+                        {task.assigned_first_name
+                          ? `${task.assigned_first_name[0]}${task.assigned_last_name[0]}`
+                          : "—"}
+                      </span>
                     </div>
                   </article>
                 ))}

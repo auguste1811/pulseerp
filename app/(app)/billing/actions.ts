@@ -50,7 +50,25 @@ async function nextDocumentNumber(
     [companyId, documentType, year],
   );
 
-  const prefix = documentType === "QUOTE" ? "DEV" : "FAC";
+  const companyResult = await client.query<{
+    quote_prefix: string;
+    invoice_prefix: string;
+  }>(
+    `
+    SELECT quote_prefix, invoice_prefix
+    FROM companies
+    WHERE id=$1
+    LIMIT 1
+    `,
+    [companyId],
+  );
+
+  const settings = companyResult.rows[0];
+  const prefix =
+    documentType === "QUOTE"
+      ? settings?.quote_prefix || "DEV"
+      : settings?.invoice_prefix || "FAC";
+
   return `${prefix}-${year}-${String(result.rows[0].current_value).padStart(4, "0")}`;
 }
 
@@ -78,6 +96,30 @@ export async function createSalesDocument(formData: FormData) {
   );
 
   if (!contact[0]) redirect("/billing?error=contact");
+
+  const companySettings = await query<{
+    payment_terms_days: number;
+    quote_validity_days: number;
+  }>(
+    `
+    SELECT payment_terms_days, quote_validity_days
+    FROM companies
+    WHERE id=$1
+    LIMIT 1
+    `,
+    [member.company_id],
+  );
+
+  const defaults = companySettings[0];
+  const automaticDueDate = new Date(parsed.data.issueDate);
+  automaticDueDate.setDate(
+    automaticDueDate.getDate() + Number(defaults?.payment_terms_days ?? 30),
+  );
+
+  const automaticValidUntil = new Date(parsed.data.issueDate);
+  automaticValidUntil.setDate(
+    automaticValidUntil.getDate() + Number(defaults?.quote_validity_days ?? 30),
+  );
 
   const lineSubtotal = parsed.data.quantity * parsed.data.unitPrice;
   const lineVat = lineSubtotal * parsed.data.vatRate / 100;
@@ -114,8 +156,14 @@ export async function createSalesDocument(formData: FormData) {
         parsed.data.documentType,
         number,
         parsed.data.issueDate,
-        parsed.data.dueDate || null,
-        parsed.data.validUntil || null,
+        parsed.data.dueDate ||
+          (parsed.data.documentType === "INVOICE"
+            ? automaticDueDate.toISOString().slice(0, 10)
+            : null),
+        parsed.data.validUntil ||
+          (parsed.data.documentType === "QUOTE"
+            ? automaticValidUntil.toISOString().slice(0, 10)
+            : null),
         parsed.data.notes || null,
         lineSubtotal,
         lineVat,

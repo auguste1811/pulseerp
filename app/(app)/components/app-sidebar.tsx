@@ -12,12 +12,14 @@ const primary = [
   { href: "/tasks", label: "Tâches", icon: "tasks" },
   { href: "/calendar", label: "Calendrier", icon: "calendar" },
   { href: "/documents", label: "Documents", icon: "documents" },
+  { href: "/team", label: "Équipe", icon: "team" },
+  { href: "/settings", label: "Paramètres", icon: "settings" },
 ] satisfies Array<{ href: string; label: string; icon: IconName }>;
 
 const secondary = [
   
   
-  { href: "#", label: "Équipe", icon: "team", soon: true },
+  
   { href: "#", label: "Rapports", icon: "reports", soon: true },
 ] satisfies Array<{ href: string; label: string; icon: IconName; soon: true }>;
 
