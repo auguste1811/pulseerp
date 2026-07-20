@@ -22,7 +22,7 @@ function statusLabel(value: string) {
 export default async function Dashboard() {
   const member = await currentContext();
 
-  const [transactions, contactsCount, tasks] = await Promise.all([
+  const [transactions, contactsCount, tasks, upcomingEvents] = await Promise.all([
     query<any>(
       "SELECT * FROM transactions WHERE company_id=$1 ORDER BY date DESC, created_at DESC",
       [member.company_id],
@@ -33,6 +33,18 @@ export default async function Dashboard() {
     ),
     query<any>(
       "SELECT * FROM tasks WHERE company_id=$1 ORDER BY created_at DESC",
+      [member.company_id],
+    ),
+    query<any>(
+      `
+      SELECT *
+      FROM calendar_events
+      WHERE company_id=$1
+        AND start_at >= NOW()
+        AND status='PLANNED'
+      ORDER BY start_at
+      LIMIT 4
+      `,
       [member.company_id],
     ),
   ]);
@@ -104,6 +116,31 @@ export default async function Dashboard() {
       <section className="dashboard-main-grid">
         <RevenueChart />
         <GoalCard revenue={revenue} target={target} />
+      </section>
+
+      <section className="dashboard-panel dashboard-calendar-widget">
+        <div className="panel-header">
+          <div>
+            <h2>Agenda à venir</h2>
+            <p>Vos prochains rendez-vous et relances</p>
+          </div>
+          <Link className="text-link" href="/calendar">Ouvrir le calendrier</Link>
+        </div>
+        <div className="dashboard-event-list">
+          {upcomingEvents.map((event) => (
+            <Link href={`/calendar/${event.id}`} className="dashboard-event-item" key={event.id}>
+              <span>{new Date(event.start_at).getDate()}</span>
+              <div>
+                <strong>{event.title}</strong>
+                <small>{new Date(event.start_at).toLocaleString("fr-FR")}</small>
+              </div>
+              <em>{event.event_type}</em>
+            </Link>
+          ))}
+          {upcomingEvents.length === 0 && (
+            <div className="empty-state">Aucun événement planifié.</div>
+          )}
+        </div>
       </section>
 
       <section className="dashboard-bottom-grid">

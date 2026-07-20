@@ -176,6 +176,53 @@ CREATE TABLE IF NOT EXISTS document_sequences (
 );
 
 
+
+
+CREATE TABLE IF NOT EXISTS documents (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  uploaded_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  storage_key TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'OTHER',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS documents_company_created_idx
+ON documents(company_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS documents_contact_idx
+ON documents(company_id, contact_id);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  event_type TEXT NOT NULL DEFAULT 'MEETING',
+  status TEXT NOT NULL DEFAULT 'PLANNED',
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  location TEXT,
+  reminder_minutes INTEGER NOT NULL DEFAULT 30,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS calendar_events_company_start_idx
+ON calendar_events(company_id, start_at);
+
+CREATE INDEX IF NOT EXISTS calendar_events_contact_idx
+ON calendar_events(company_id, contact_id);
+
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -309,7 +356,7 @@ async function main() {
     }
 
     await client.query("COMMIT");
-    console.log("Base PulseERP Facturation v0.4.0 initialisée.");
+    console.log("Base PulseERP Documents v0.6.0 initialisée.");
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

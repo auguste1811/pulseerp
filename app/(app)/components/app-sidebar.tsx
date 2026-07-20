@@ -10,11 +10,13 @@ const primary = [
   { href: "/transactions", label: "Comptabilité", icon: "accounting" },
   { href: "/billing", label: "Devis & factures", icon: "documents" },
   { href: "/tasks", label: "Tâches", icon: "tasks" },
+  { href: "/calendar", label: "Calendrier", icon: "calendar" },
+  { href: "/documents", label: "Documents", icon: "documents" },
 ] satisfies Array<{ href: string; label: string; icon: IconName }>;
 
 const secondary = [
-  { href: "#", label: "Calendrier", icon: "calendar", soon: true },
-  { href: "#", label: "Documents", icon: "documents", soon: true },
+  
+  
   { href: "#", label: "Équipe", icon: "team", soon: true },
   { href: "#", label: "Rapports", icon: "reports", soon: true },
 ] satisfies Array<{ href: string; label: string; icon: IconName; soon: true }>;
