@@ -1,3 +1,4 @@
+import type { JWT } from "next-auth/jwt";
 import { randomUUID } from "node:crypto";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
@@ -222,7 +223,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             firstName,
             lastName,
             name: displayName || user.email,
-            emailVerified: user.emailVerified || new Date(),
+            emailVerified: new Date(),
           },
         });
 
