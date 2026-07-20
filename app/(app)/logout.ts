@@ -1,9 +1,7 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { deleteSession } from "@/lib/auth";
+import { signOut } from "@/auth";
 
 export async function logoutAction() {
-  await deleteSession();
-  redirect("/login");
+  await signOut({ redirectTo: "/login" });
 }

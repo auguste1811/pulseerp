@@ -2,9 +2,11 @@
 
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { pool } from "@/lib/db";
+import { signIn } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 const registerSchema = z
   .object({
@@ -32,66 +34,57 @@ export async function registerAction(formData: FormData) {
 
   if (!parsed.success) redirect("/register?error=invalid");
 
-  const client = await pool.connect();
+  const existing = await prisma.user.findUnique({
+    where: { email: parsed.data.email },
+    select: { id: true },
+  });
+
+  if (existing) redirect("/register?error=exists");
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        id: randomUUID(),
+        name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        email: parsed.data.email,
+        emailVerified: new Date(),
+        passwordHash,
+        isActive: true,
+      },
+    });
+
+    const company = await tx.company.create({
+      data: {
+        id: randomUUID(),
+        name: parsed.data.companyName,
+        currency: "EUR",
+        defaultVatRate: 20,
+      },
+    });
+
+    await tx.companyMember.create({
+      data: {
+        userId: user.id,
+        companyId: company.id,
+        role: "OWNER",
+      },
+    });
+  });
 
   try {
-    await client.query("BEGIN");
-
-    const existing = await client.query(
-      "SELECT 1 FROM users WHERE email = $1 LIMIT 1",
-      [parsed.data.email],
-    );
-
-    if (existing.rowCount) {
-      await client.query("ROLLBACK");
-      redirect("/register?error=exists");
-    }
-
-    const userId = randomUUID();
-    const companyId = randomUUID();
-    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-
-    await client.query(
-      `
-      INSERT INTO users (
-        id, first_name, last_name, email, password_hash, is_active
-      )
-      VALUES ($1, $2, $3, $4, $5, TRUE)
-      `,
-      [
-        userId,
-        parsed.data.firstName,
-        parsed.data.lastName,
-        parsed.data.email,
-        passwordHash,
-      ],
-    );
-
-    await client.query(
-      `
-      INSERT INTO companies (id, name, currency, default_vat_rate)
-      VALUES ($1, $2, 'EUR', 20)
-      `,
-      [companyId, parsed.data.companyName],
-    );
-
-    await client.query(
-      `
-      INSERT INTO company_members (user_id, company_id, role)
-      VALUES ($1, $2, 'OWNER')
-      `,
-      [userId, companyId],
-    );
-
-    await client.query("COMMIT");
+    await signIn("credentials", {
+      email: parsed.data.email,
+      password: parsed.data.password,
+      redirectTo: "/dashboard",
+    });
   } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch {}
+    if (error instanceof AuthError) {
+      redirect("/login?created=1");
+    }
     throw error;
-  } finally {
-    client.release();
   }
-
-  redirect("/login?created=1");
 }

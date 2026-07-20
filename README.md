@@ -35,3 +35,8 @@ npm run db:studio
 ## Important
 
 Le fichier `.env` ne doit jamais être envoyé sur GitHub.
+
+
+## Auth Enterprise
+
+Voir `AUTH-ENTERPRISE-V2.2.md`.

@@ -17,7 +17,7 @@ async function main() {
       email: "demo@pulseerp.fr",
       passwordHash,
       isActive: true,
-      emailVerifiedAt: new Date(),
+      emailVerified: new Date(),
     },
   });
 
