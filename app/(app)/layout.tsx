@@ -1,2 +1,25 @@
-import Link from "next/link"; import { currentContext } from "@/lib/auth"; import { logoutAction } from "./logout";
-export default async function AppLayout({children}:{children:React.ReactNode}){const m=await currentContext();return <div className="shell"><aside className="sidebar"><div className="brand"><span className="brand-logo">P</span>PulseERP</div><nav className="nav"><Link href="/dashboard">Tableau de bord</Link><Link href="/contacts">CRM</Link><Link href="/transactions">Comptabilité</Link><Link href="/tasks">Tâches</Link></nav></aside><main className="content"><header className="top"><div><b>{m.company_name}</b><div className="muted">{m.role}</div></div><form action={logoutAction} style={{display:"flex",gap:10,alignItems:"center"}}><div className="avatar">{m.first_name[0]}{m.last_name[0]}</div><button className="btn secondary">Déconnexion</button></form></header>{children}</main></div>}
+import { currentContext } from "@/lib/auth";
+import { AppSidebar } from "./components/app-sidebar";
+import { AppTopbar } from "./components/app-topbar";
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const member = await currentContext();
+
+  return (
+    <div className="app-shell">
+      <AppSidebar companyName={member.company_name} />
+      <div className="app-main">
+        <AppTopbar
+          firstName={member.first_name}
+          lastName={member.last_name}
+          role={member.role}
+        />
+        <main className="app-content">{children}</main>
+      </div>
+    </div>
+  );
+}

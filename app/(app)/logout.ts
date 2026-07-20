@@ -1,1 +1,9 @@
-"use server"; import { cookies } from "next/headers"; import { redirect } from "next/navigation"; export async function logoutAction(){(await cookies()).delete("pulse_session");redirect("/login")}
+"use server";
+
+import { redirect } from "next/navigation";
+import { deleteSession } from "@/lib/auth";
+
+export async function logoutAction() {
+  await deleteSession();
+  redirect("/login");
+}
