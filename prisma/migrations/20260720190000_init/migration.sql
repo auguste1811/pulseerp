@@ -1,0 +1,364 @@
+-- PulseERP v2.1 initial schema
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL DEFAULT '',
+  google_id TEXT UNIQUE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  email_verified_at TIMESTAMPTZ,
+  last_login_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_unique
+ON users(google_id)
+WHERE google_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS companies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'EUR',
+  default_vat_rate NUMERIC NOT NULL DEFAULT 20,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS company_members (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'EMPLOYEE',
+  PRIMARY KEY (user_id, company_id)
+);
+
+CREATE TABLE IF NOT EXISTS contacts (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  company_name TEXT,
+  email TEXT,
+  phone TEXT,
+  source TEXT,
+  status TEXT NOT NULL DEFAULT 'PROSPECT',
+  value NUMERIC NOT NULL DEFAULT 0,
+  address TEXT,
+  siret TEXT,
+  vat_number TEXT,
+  priority TEXT NOT NULL DEFAULT 'MEDIUM',
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS siret TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS vat_number TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'MEDIUM';
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS contacts_company_status_idx
+ON contacts(company_id, status);
+
+CREATE INDEX IF NOT EXISTS contacts_company_email_idx
+ON contacts(company_id, LOWER(email));
+
+CREATE TABLE IF NOT EXISTS contact_notes (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS contact_notes_contact_idx
+ON contact_notes(company_id, contact_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS contact_activities (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS contact_activities_contact_idx
+ON contact_activities(company_id, contact_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS transactions (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  date DATE NOT NULL,
+  label TEXT NOT NULL,
+  category TEXT,
+  amount_excluding_tax NUMERIC NOT NULL,
+  vat_rate NUMERIC NOT NULL,
+  vat_amount NUMERIC NOT NULL,
+  amount_including_tax NUMERIC NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+CREATE TABLE IF NOT EXISTS sales_documents (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  document_type TEXT NOT NULL CHECK (document_type IN ('QUOTE','INVOICE')),
+  document_number TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'DRAFT',
+  issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  due_date DATE,
+  valid_until DATE,
+  currency TEXT NOT NULL DEFAULT 'EUR',
+  notes TEXT,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  vat_amount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  source_quote_id TEXT REFERENCES sales_documents(id) ON DELETE SET NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(company_id, document_number)
+);
+
+CREATE INDEX IF NOT EXISTS sales_documents_company_type_idx
+ON sales_documents(company_id, document_type, issue_date DESC);
+
+CREATE INDEX IF NOT EXISTS sales_documents_contact_idx
+ON sales_documents(company_id, contact_id);
+
+CREATE TABLE IF NOT EXISTS sales_document_items (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL REFERENCES sales_documents(id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  quantity NUMERIC NOT NULL DEFAULT 1,
+  unit_price NUMERIC NOT NULL DEFAULT 0,
+  vat_rate NUMERIC NOT NULL DEFAULT 20,
+  line_subtotal NUMERIC NOT NULL DEFAULT 0,
+  line_vat NUMERIC NOT NULL DEFAULT 0,
+  line_total NUMERIC NOT NULL DEFAULT 0,
+  position INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS sales_document_items_document_idx
+ON sales_document_items(document_id, position);
+
+
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS legal_name TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT 'France';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS website TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS siret TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS vat_number TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS iban TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS bic TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS invoice_footer TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS payment_terms_days INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS quote_validity_days INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS quote_prefix TEXT NOT NULL DEFAULT 'DEV';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS invoice_prefix TEXT NOT NULL DEFAULT 'FAC';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS document_sequences (
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  document_type TEXT NOT NULL CHECK (document_type IN ('QUOTE','INVOICE')),
+  year INTEGER NOT NULL,
+  current_value INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(company_id, document_type, year)
+);
+
+
+
+
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'TODO',
+  priority TEXT NOT NULL DEFAULT 'MEDIUM',
+  due_date DATE,
+  assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS tasks_company_assignee_idx
+ON tasks(company_id, assigned_user_id, status);
+
+
+
+CREATE TABLE IF NOT EXISTS integration_connections (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  provider TEXT NOT NULL,
+  account_email TEXT,
+  account_name TEXT,
+  encrypted_access_token TEXT,
+  encrypted_refresh_token TEXT,
+  token_expires_at TIMESTAMPTZ,
+  scopes TEXT[] NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'CONNECTED',
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  last_sync_at TIMESTAMPTZ,
+  last_sync_status TEXT,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(company_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS integration_connections_company_idx
+ON integration_connections(company_id, provider, status);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  assigned_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  event_type TEXT NOT NULL DEFAULT 'MEETING',
+  status TEXT NOT NULL DEFAULT 'PLANNED',
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  location TEXT,
+  reminder_minutes INTEGER NOT NULL DEFAULT 30,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  external_provider TEXT,
+  external_id TEXT,
+  external_url TEXT,
+  external_updated_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS calendar_events_company_start_idx
+ON calendar_events(company_id, start_at);
+
+CREATE INDEX IF NOT EXISTS calendar_events_contact_idx
+ON calendar_events(company_id, contact_id);
+
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_provider TEXT;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_url TEXT;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS external_updated_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS calendar_events_external_unique_idx
+ON calendar_events(company_id, external_provider, external_id)
+WHERE external_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS automations (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  trigger_type TEXT NOT NULL,
+  trigger_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  conditions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  last_run_at TIMESTAMPTZ,
+  last_run_status TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS automations_company_active_idx
+ON automations(company_id, is_active);
+
+CREATE INDEX IF NOT EXISTS automations_company_trigger_idx
+ON automations(company_id, trigger_type);
+
+CREATE TABLE IF NOT EXISTS automation_runs (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+  trigger_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL DEFAULT 'RUNNING',
+  logs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  error_message TEXT,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  finished_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS automation_runs_company_started_idx
+ON automation_runs(company_id, started_at DESC);
+
+CREATE INDEX IF NOT EXISTS automation_runs_automation_idx
+ON automation_runs(automation_id, started_at DESC);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'INFO',
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS notifications_user_read_idx
+ON notifications(user_id, is_read, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS invitations (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'EMPLOYEE',
+  token TEXT UNIQUE NOT NULL,
+  invited_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS invitations_company_email_idx
+ON invitations(company_id, LOWER(email));
+
+CREATE TABLE IF NOT EXISTS documents (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  uploaded_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  storage_key TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'OTHER',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS documents_company_created_idx
+ON documents(company_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS documents_contact_idx
+ON documents(company_id, contact_id);

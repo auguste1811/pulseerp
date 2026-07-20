@@ -1,0 +1,397 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  email           String    @unique
+  passwordHash    String    @default("") @map("password_hash")
+  googleId        String?   @unique @map("google_id")
+  isActive        Boolean   @default(true) @map("is_active")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  memberships        CompanyMember[]
+  assignedContacts   Contact[]              @relation("ContactAssignee")
+  notes              ContactNote[]
+  activities         ContactActivity[]
+  assignedTasks      Task[]                 @relation("TaskAssignee")
+  createdEvents      CalendarEvent[]        @relation("EventCreator")
+  assignedEvents     CalendarEvent[]        @relation("EventAssignee")
+  createdDocuments   SalesDocument[]        @relation("SalesDocumentCreator")
+  uploadedDocuments  Document[]
+  invitations        Invitation[]
+  integrations       IntegrationConnection[]
+  automations        Automation[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model Company {
+  id                String   @id
+  name              String
+  legalName         String?  @map("legal_name")
+  address           String?
+  postalCode        String?  @map("postal_code")
+  city              String?
+  country           String   @default("France")
+  email             String?
+  phone             String?
+  website           String?
+  siret             String?
+  vatNumber         String?  @map("vat_number")
+  iban              String?
+  bic               String?
+  currency          String   @default("EUR")
+  defaultVatRate    Decimal  @default(20) @map("default_vat_rate")
+  invoiceFooter     String?  @map("invoice_footer")
+  paymentTermsDays  Int      @default(30) @map("payment_terms_days")
+  quoteValidityDays Int      @default(30) @map("quote_validity_days")
+  quotePrefix       String   @default("DEV") @map("quote_prefix")
+  invoicePrefix     String   @default("FAC") @map("invoice_prefix")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  members            CompanyMember[]
+  contacts           Contact[]
+  contactNotes       ContactNote[]
+  contactActivities  ContactActivity[]
+  transactions       Transaction[]
+  tasks              Task[]
+  calendarEvents     CalendarEvent[]
+  salesDocuments     SalesDocument[]
+  documentSequences  DocumentSequence[]
+  invitations        Invitation[]
+  documents          Document[]
+  integrations       IntegrationConnection[]
+  automations        Automation[]
+  automationRuns     AutomationRun[]
+  notifications      Notification[]
+
+  @@map("companies")
+}
+
+model CompanyMember {
+  userId    String  @map("user_id")
+  companyId String  @map("company_id")
+  role      String  @default("EMPLOYEE")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, companyId])
+  @@map("company_members")
+}
+
+model Contact {
+  id             String   @id
+  companyId      String   @map("company_id")
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  companyName    String?  @map("company_name")
+  email          String?
+  phone          String?
+  source         String?
+  status         String   @default("PROSPECT")
+  value          Decimal  @default(0)
+  address        String?
+  siret          String?
+  vatNumber      String?  @map("vat_number")
+  priority       String   @default("MEDIUM")
+  tags           String[] @default([])
+  assignedUserId String?  @map("assigned_user_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedUser  User?             @relation("ContactAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  notes         ContactNote[]
+  activities    ContactActivity[]
+  events        CalendarEvent[]
+  salesDocs     SalesDocument[]
+  documents     Document[]
+
+  @@index([companyId, status], map: "contacts_company_status_idx")
+  @@map("contacts")
+}
+
+model ContactNote {
+  id        String   @id
+  companyId String   @map("company_id")
+  contactId String   @map("contact_id")
+  authorId  String   @map("author_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, contactId, createdAt(sort: Desc)], map: "contact_notes_contact_idx")
+  @@map("contact_notes")
+}
+
+model ContactActivity {
+  id          String   @id
+  companyId   String   @map("company_id")
+  contactId   String   @map("contact_id")
+  actorId     String?  @map("actor_id")
+  type        String
+  title       String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, contactId, createdAt(sort: Desc)], map: "contact_activities_contact_idx")
+  @@map("contact_activities")
+}
+
+model Transaction {
+  id                 String   @id
+  companyId          String   @map("company_id")
+  type               String
+  status             String   @default("PENDING")
+  date               DateTime @db.Date
+  label              String
+  category           String?
+  amountExcludingTax Decimal  @map("amount_excluding_tax")
+  vatRate            Decimal  @map("vat_rate")
+  vatAmount          Decimal  @map("vat_amount")
+  amountIncludingTax Decimal  @map("amount_including_tax")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+model Task {
+  id             String   @id
+  companyId      String   @map("company_id")
+  title          String
+  description    String?
+  status         String   @default("TODO")
+  priority       String   @default("MEDIUM")
+  dueDate        DateTime? @map("due_date") @db.Date
+  assignedUserId String?  @map("assigned_user_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedUser   User?    @relation("TaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, assignedUserId, status], map: "tasks_company_assignee_idx")
+  @@map("tasks")
+}
+
+model CalendarEvent {
+  id                String    @id
+  companyId         String    @map("company_id")
+  contactId         String?   @map("contact_id")
+  assignedUserId    String?   @map("assigned_user_id")
+  title             String
+  description       String?
+  eventType         String    @default("MEETING") @map("event_type")
+  status            String    @default("PLANNED")
+  startAt           DateTime  @map("start_at") @db.Timestamptz(6)
+  endAt             DateTime  @map("end_at") @db.Timestamptz(6)
+  location          String?
+  reminderMinutes   Int       @default(30) @map("reminder_minutes")
+  createdBy         String?   @map("created_by")
+  externalProvider  String?   @map("external_provider")
+  externalId        String?   @map("external_id")
+  externalUrl       String?   @map("external_url")
+  externalUpdatedAt DateTime? @map("external_updated_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact           Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedUser      User?     @relation("EventAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  creator           User?     @relation("EventCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([companyId, startAt], map: "calendar_events_company_start_idx")
+  @@index([companyId, contactId], map: "calendar_events_contact_idx")
+  @@unique([companyId, externalProvider, externalId], map: "calendar_events_external_unique_idx")
+  @@map("calendar_events")
+}
+
+model SalesDocument {
+  id            String   @id
+  companyId     String   @map("company_id")
+  contactId     String?  @map("contact_id")
+  documentType  String   @map("document_type")
+  documentNumber String  @map("document_number")
+  status        String   @default("DRAFT")
+  issueDate     DateTime @default(now()) @map("issue_date") @db.Date
+  dueDate       DateTime? @map("due_date") @db.Date
+  validUntil    DateTime? @map("valid_until") @db.Date
+  currency      String   @default("EUR")
+  notes         String?
+  subtotal      Decimal  @default(0)
+  vatAmount     Decimal  @default(0) @map("vat_amount")
+  total         Decimal  @default(0)
+  sourceQuoteId String?  @map("source_quote_id")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  creator       User?    @relation("SalesDocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  sourceQuote   SalesDocument? @relation("QuoteConversion", fields: [sourceQuoteId], references: [id], onDelete: SetNull)
+  derivedDocs   SalesDocument[] @relation("QuoteConversion")
+  items         SalesDocumentItem[]
+
+  @@unique([companyId, documentNumber])
+  @@index([companyId, documentType, issueDate(sort: Desc)], map: "sales_documents_company_type_idx")
+  @@index([companyId, contactId], map: "sales_documents_contact_idx")
+  @@map("sales_documents")
+}
+
+model SalesDocumentItem {
+  id           String   @id
+  documentId   String   @map("document_id")
+  description  String
+  quantity     Decimal  @default(1)
+  unitPrice    Decimal  @default(0) @map("unit_price")
+  vatRate      Decimal  @default(20) @map("vat_rate")
+  lineSubtotal Decimal  @default(0) @map("line_subtotal")
+  lineVat      Decimal  @default(0) @map("line_vat")
+  lineTotal    Decimal  @default(0) @map("line_total")
+  position     Int      @default(0)
+  document     SalesDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, position], map: "sales_document_items_document_idx")
+  @@map("sales_document_items")
+}
+
+model DocumentSequence {
+  companyId   String  @map("company_id")
+  documentType String @map("document_type")
+  year        Int
+  currentValue Int    @default(0) @map("current_value")
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, documentType, year])
+  @@map("document_sequences")
+}
+
+model Invitation {
+  id         String    @id
+  companyId  String    @map("company_id")
+  email      String
+  role       String    @default("EMPLOYEE")
+  token      String    @unique
+  invitedBy  String?   @map("invited_by")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inviter    User?     @relation(fields: [invitedBy], references: [id], onDelete: SetNull)
+
+  @@map("invitations")
+}
+
+model Document {
+  id           String   @id
+  companyId    String   @map("company_id")
+  contactId    String?  @map("contact_id")
+  uploadedBy   String?  @map("uploaded_by")
+  name         String
+  originalName String   @map("original_name")
+  storageKey   String   @map("storage_key")
+  mimeType     String   @map("mime_type")
+  sizeBytes    BigInt   @map("size_bytes")
+  category     String   @default("OTHER")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  uploader     User?    @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@map("documents")
+}
+
+model IntegrationConnection {
+  id                    String    @id
+  companyId             String    @map("company_id")
+  userId                String?   @map("user_id")
+  provider              String
+  accountEmail          String?   @map("account_email")
+  accountName           String?   @map("account_name")
+  encryptedAccessToken  String?   @map("encrypted_access_token")
+  encryptedRefreshToken String?   @map("encrypted_refresh_token")
+  tokenExpiresAt        DateTime? @map("token_expires_at") @db.Timestamptz(6)
+  scopes                String[]  @default([])
+  status                String    @default("CONNECTED")
+  settings              Json      @default("{}")
+  lastSyncAt            DateTime? @map("last_sync_at") @db.Timestamptz(6)
+  lastSyncStatus        String?   @map("last_sync_status")
+  lastError             String?   @map("last_error")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, provider])
+  @@map("integration_connections")
+}
+
+model Automation {
+  id            String   @id
+  companyId     String   @map("company_id")
+  name          String
+  description   String?
+  triggerType   String   @map("trigger_type")
+  triggerConfig Json     @default("{}") @map("trigger_config")
+  conditions    Json     @default("[]")
+  actions       Json     @default("[]")
+  isActive      Boolean  @default(false) @map("is_active")
+  createdBy     String?  @map("created_by")
+  lastRunAt     DateTime? @map("last_run_at") @db.Timestamptz(6)
+  lastRunStatus String?  @map("last_run_status")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  creator       User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  runs          AutomationRun[]
+
+  @@map("automations")
+}
+
+model AutomationRun {
+  id             String    @id
+  companyId      String    @map("company_id")
+  automationId   String    @map("automation_id")
+  triggerPayload Json      @default("{}") @map("trigger_payload")
+  status         String    @default("RUNNING")
+  logs           Json      @default("[]")
+  errorMessage   String?   @map("error_message")
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz(6)
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  automation     Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@map("automation_runs")
+}
+
+model Notification {
+  id        String   @id
+  companyId String   @map("company_id")
+  userId    String?  @map("user_id")
+  title     String
+  message   String
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}

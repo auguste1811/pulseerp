@@ -1,25 +1,37 @@
-# PulseERP v1.0.0 Premium
+# PulseERP v2.1 — Prisma Foundation
 
-ERP SaaS web pour TPE et PME.
+Cette version remplace le script SQL `setup-db.ts` par des migrations Prisma.
+L'application existante continue de fonctionner avec les requêtes PostgreSQL
+actuelles, tandis que les prochains modules peuvent utiliser `lib/prisma.ts`.
 
-## Démarrage
+## Installation locale
 
 ```bash
-cp .env.example .env
-docker compose up -d db
 npm install
+cp .env.example .env
 npm run setup
 npm run dev
 ```
 
-Ouvrir `http://localhost:3000`.
+## Neon + Vercel
+
+1. Placez l'URL Neon dans `DATABASE_URL` sur le PC et dans Vercel.
+2. Lancez localement `npm run setup` une seule fois pour initialiser Neon.
+3. Sur Vercel, la commande de build reste `npm run build`.
+
+## Commandes base de données
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run db:studio
+```
 
 ## Compte de démonstration
 
 - Email : `demo@pulseerp.fr`
 - Mot de passe : `Pulse123!`
 
-## Modules
+## Important
 
-Dashboard, CRM, facturation, comptabilité, tâches, calendrier, documents,
-équipe, rapports, automatisations, notifications et paramètres.
+Le fichier `.env` ne doit jamais être envoyé sur GitHub.
