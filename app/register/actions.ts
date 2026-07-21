@@ -2,10 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 const registerSchema = z
@@ -85,16 +83,9 @@ export async function registerAction(formData: FormData) {
     });
   });
 
-  try {
-    await signIn("credentials", {
-      email: parsed.data.email,
-      password: parsed.data.password,
-      redirectTo: "/dashboard",
-    });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      redirect("/login?created=1");
-    }
-    throw error;
-  }
+  // La création du compte est terminée. On redirige vers le formulaire
+  // de connexion au lieu de lancer Auth.js depuis la même Server Action.
+  // Cela évite qu’une erreur de configuration Auth masque une inscription
+  // pourtant enregistrée correctement en base.
+  redirect("/login?created=1");
 }

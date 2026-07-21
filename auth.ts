@@ -39,6 +39,11 @@ declare module "next-auth/jwt" {
   }
 }
 
+const resolvedAuthSecret =
+  process.env.AUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  process.env.JWT_SECRET;
+
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8).max(128),
@@ -254,5 +259,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
     },
   },
-  secret: process.env.AUTH_SECRET || process.env.JWT_SECRET,
+  secret: resolvedAuthSecret,
 });
