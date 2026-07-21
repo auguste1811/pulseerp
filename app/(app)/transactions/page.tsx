@@ -5,6 +5,7 @@ import { euro } from "@/lib/format";
 import { Icon } from "../components/icons";
 import { createTransaction } from "./actions";
 import { changePurchaseStatus, classifyPurchaseInvoice, importPurchaseInvoice } from "./accounting-actions";
+import { InvoiceAIButton } from "./invoice-ai-button";
 
 const categoryLabels: Record<string, string> = {
   TO_CLASSIFY: "À classer", PURCHASES: "Achats", SUPPLIES: "Fournitures",
@@ -83,7 +84,7 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
       <tbody>{purchases.map(row=><tr key={row.id}><td><a href={`/api/accounting/purchases/${row.id}/download`} target="_blank">{row.original_name}</a><small>{Math.ceil(Number(row.size_bytes)/1024)} Ko</small></td><td><strong>{row.supplier_name}</strong><small>{row.invoice_number||'Sans numéro'}</small></td><td>{new Date(row.issue_date).toLocaleDateString('fr-FR')}</td>
       <td><form action={classifyPurchaseInvoice} className="inline-accounting-form"><input type="hidden" name="id" value={row.id}/><select name="category" defaultValue={row.category}>{Object.entries(categoryLabels).map(([v,l])=><option value={v} key={v}>{l}</option>)}</select><button type="submit">Classer</button></form></td>
       <td><form action={changePurchaseStatus} className="inline-accounting-form"><input type="hidden" name="id" value={row.id}/><select name="status" defaultValue={row.status}><option value="PENDING">À payer</option><option value="PAID">Payée</option><option value="OVERDUE">En retard</option></select><button type="submit">OK</button></form></td>
-      <td><strong>{euro(Number(row.total))}</strong></td><td><a className="icon-link" href={`/api/accounting/purchases/${row.id}/download`} target="_blank">Voir</a></td></tr>)}</tbody></table></div>
+      <td><strong>{euro(Number(row.total))}</strong></td><td><div style={{display:"flex",gap:6,alignItems:"center"}}><InvoiceAIButton id={row.id}/><a className="icon-link" href={`/api/accounting/purchases/${row.id}/download`} target="_blank">Voir</a></div></td></tr>)}</tbody></table></div>
     </article>
 
     <section className="module-grid accounting-bottom-grid">
