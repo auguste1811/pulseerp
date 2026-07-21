@@ -57,12 +57,22 @@ export async function registerAction(formData: FormData) {
       },
     });
 
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 3);
+
     const company = await tx.company.create({
       data: {
         id: randomUUID(),
         name: parsed.data.companyName,
         currency: "EUR",
         defaultVatRate: 20,
+        subscription: {
+          create: {
+            plan: "TRIAL",
+            status: "TRIALING",
+            trialEndsAt,
+          },
+        },
       },
     });
 

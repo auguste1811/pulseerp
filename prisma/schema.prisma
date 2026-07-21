@@ -139,6 +139,7 @@ model Company {
   purchaseInvoices    PurchaseInvoice[]
   accountingEntries   AccountingEntry[]
   aiConversations     AiConversation[]
+  subscription        Subscription?
 
   @@map("companies")
 }
@@ -483,6 +484,11 @@ model PurchaseInvoice {
   mimeType      String   @map("mime_type")
   sizeBytes     Int      @map("size_bytes")
   fileData      Bytes    @map("file_data")
+  ocrStatus     String   @default("NOT_ANALYZED") @map("ocr_status")
+  ocrConfidence Decimal? @map("ocr_confidence")
+  ocrData       Json?    @map("ocr_data")
+  ocrError      String?  @map("ocr_error")
+  ocrAnalyzedAt DateTime? @map("ocr_analyzed_at") @db.Timestamptz(6)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -545,4 +551,26 @@ model AiMessage {
 
   @@index([conversationId, createdAt])
   @@map("ai_messages")
+}
+
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  companyId            String   @unique @map("company_id")
+  plan                 String   @default("TRIAL")
+  status               String   @default("TRIALING")
+  trialStartsAt        DateTime @default(now()) @map("trial_starts_at") @db.Timestamptz(6)
+  trialEndsAt          DateTime @map("trial_ends_at") @db.Timestamptz(6)
+  stripeCustomerId     String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  stripePriceId        String?  @map("stripe_price_id")
+  currentPeriodEnd     DateTime? @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd    Boolean  @default(false) @map("cancel_at_period_end")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([status, trialEndsAt])
+  @@map("subscriptions")
 }

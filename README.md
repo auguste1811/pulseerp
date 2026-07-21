@@ -40,3 +40,13 @@ Le fichier `.env` ne doit jamais être envoyé sur GitHub.
 ## Auth Enterprise
 
 Voir `AUTH-ENTERPRISE-V2.2.md`.
+
+
+## OCR Pro v3.4
+
+Voir `V3.4-OCR-PRO.md`.
+
+
+## Essai et abonnements v3.5
+
+Voir `V3.5-TRIAL-ABONNEMENTS.md`.

@@ -40,6 +40,26 @@ async function main() {
     });
   }
 
+  const demoPeriodEnd = new Date();
+  demoPeriodEnd.setFullYear(demoPeriodEnd.getFullYear() + 10);
+
+  await prisma.subscription.upsert({
+    where: { companyId: company.id },
+    update: {
+      plan: "BUSINESS",
+      status: "ACTIVE",
+      currentPeriodEnd: demoPeriodEnd,
+      cancelAtPeriodEnd: false,
+    },
+    create: {
+      companyId: company.id,
+      plan: "BUSINESS",
+      status: "ACTIVE",
+      trialEndsAt: demoPeriodEnd,
+      currentPeriodEnd: demoPeriodEnd,
+    },
+  });
+
   if ((await prisma.contact.count({ where: { companyId: company.id } })) === 0) {
     await prisma.contact.createMany({
       data: [

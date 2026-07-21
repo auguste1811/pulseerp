@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { requireSubscriptionAccess } from "@/lib/subscription";
 
 export type SessionPayload = {
   userId: string;
@@ -36,7 +37,7 @@ export async function deleteSession(): Promise<void> {
   await signOut({ redirect: false });
 }
 
-export async function currentContext() {
+export async function currentContext(options?: { allowExpired?: boolean }) {
   const session = await requireSession();
 
   const membership = await prisma.companyMember.findUnique({
@@ -57,6 +58,11 @@ export async function currentContext() {
     redirect("/login");
   }
 
+  const subscription = await requireSubscriptionAccess(
+    membership.company.id,
+    { allowExpired: options?.allowExpired },
+  );
+
   return {
     user_id: membership.user.id,
     first_name: membership.user.firstName,
@@ -65,5 +71,6 @@ export async function currentContext() {
     company_id: membership.company.id,
     company_name: membership.company.name,
     role: membership.role,
+    subscription,
   };
 }

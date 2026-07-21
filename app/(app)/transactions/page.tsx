@@ -20,7 +20,8 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
   const [rows, purchases, sales, entries] = await Promise.all([
     query<any>("SELECT * FROM transactions WHERE company_id=$1 ORDER BY date DESC, created_at DESC", [member.company_id]),
     query<any>(`SELECT id, supplier_name, invoice_number, issue_date, due_date, category, status,
-      subtotal, vat_amount, total, original_name, mime_type, size_bytes
+      subtotal, vat_amount, total, original_name, mime_type, size_bytes,
+      ocr_status, ocr_confidence, ocr_error
       FROM purchase_invoices WHERE company_id=$1 ORDER BY issue_date DESC, created_at DESC`, [member.company_id]),
     query<any>(`SELECT d.id, d.document_number, d.issue_date, d.status, d.subtotal, d.vat_amount, d.total,
       COALESCE(c.company_name, CONCAT(c.first_name,' ',c.last_name), 'Client') AS customer
@@ -47,6 +48,7 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
     </section>
 
     {feedback.imported && <div className="import-alert success"><strong>Facture importée.</strong><span>La dépense et ses écritures ont été créées automatiquement.</span></div>}
+    {feedback.ocr === "validated" && <div className="import-alert success"><strong>Analyse OCR validée.</strong><span>La facture et les écritures comptables ont été mises à jour.</span></div>}
     {feedback.error && <div className="import-alert error"><strong>Import impossible.</strong><span>Vérifie le fichier et les informations saisies.</span></div>}
 
     <section className="mini-kpi-grid accounting-kpis">
@@ -84,7 +86,7 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
       <tbody>{purchases.map(row=><tr key={row.id}><td><a href={`/api/accounting/purchases/${row.id}/download`} target="_blank">{row.original_name}</a><small>{Math.ceil(Number(row.size_bytes)/1024)} Ko</small></td><td><strong>{row.supplier_name}</strong><small>{row.invoice_number||'Sans numéro'}</small></td><td>{new Date(row.issue_date).toLocaleDateString('fr-FR')}</td>
       <td><form action={classifyPurchaseInvoice} className="inline-accounting-form"><input type="hidden" name="id" value={row.id}/><select name="category" defaultValue={row.category}>{Object.entries(categoryLabels).map(([v,l])=><option value={v} key={v}>{l}</option>)}</select><button type="submit">Classer</button></form></td>
       <td><form action={changePurchaseStatus} className="inline-accounting-form"><input type="hidden" name="id" value={row.id}/><select name="status" defaultValue={row.status}><option value="PENDING">À payer</option><option value="PAID">Payée</option><option value="OVERDUE">En retard</option></select><button type="submit">OK</button></form></td>
-      <td><strong>{euro(Number(row.total))}</strong></td><td><div style={{display:"flex",gap:6,alignItems:"center"}}><InvoiceAIButton id={row.id}/><a className="icon-link" href={`/api/accounting/purchases/${row.id}/download`} target="_blank">Voir</a></div></td></tr>)}</tbody></table></div>
+      <td><strong>{euro(Number(row.total))}</strong></td><td><div style={{display:"flex",gap:6,alignItems:"center"}}><InvoiceAIButton id={row.id} status={row.ocr_status}/><a className="icon-link" href={`/api/accounting/purchases/${row.id}/download`} target="_blank">Voir</a></div></td></tr>)}</tbody></table></div>
     </article>
 
     <section className="module-grid accounting-bottom-grid">

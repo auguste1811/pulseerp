@@ -227,10 +227,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        const trialEndsAt = new Date();
+        trialEndsAt.setDate(trialEndsAt.getDate() + 3);
+
         const company = await tx.company.create({
           data: {
             id: randomUUID(),
             name: `Espace de ${firstName}`,
+            subscription: {
+              create: {
+                plan: "TRIAL",
+                status: "TRIALING",
+                trialEndsAt,
+              },
+            },
           },
         });
 
