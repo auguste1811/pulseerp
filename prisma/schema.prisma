@@ -18,6 +18,7 @@ model User {
   passwordHash  String    @default("") @map("password_hash")
   googleId      String?   @unique @map("google_id")
   isActive      Boolean   @default(true) @map("is_active")
+  isPlatformAdmin Boolean @default(false) @map("is_platform_admin")
   lastLoginAt   DateTime? @map("last_login_at") @db.Timestamptz(6)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -120,6 +121,8 @@ model Company {
   invoicePrefix     String   @default("FAC") @map("invoice_prefix")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  status            String   @default("ACTIVE")
+  accessExpiresAt   DateTime? @map("access_expires_at") @db.Timestamptz(6)
 
   members            CompanyMember[]
   contacts           Contact[]
@@ -140,6 +143,7 @@ model Company {
   accountingEntries   AccountingEntry[]
   aiConversations     AiConversation[]
   subscription        Subscription?
+  enabledModules      CompanyModule[]
 
   @@map("companies")
 }
@@ -573,4 +577,39 @@ model Subscription {
 
   @@index([status, trialEndsAt])
   @@map("subscriptions")
+}
+
+
+model AppModule {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  category    String
+  route       String?
+  icon        String?
+  position    Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  companies CompanyModule[]
+
+  @@map("app_modules")
+}
+
+model CompanyModule {
+  companyId String    @map("company_id")
+  moduleId  String    @map("module_id")
+  enabled   Boolean   @default(true)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  module  AppModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, moduleId])
+  @@index([companyId, enabled])
+  @@map("company_modules")
 }

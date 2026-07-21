@@ -3021,3 +3021,489 @@ h1, h2, h3, p { margin-top: 0; }
     text-align: left;
   }
 }
+
+
+/* PulseERP v3.7 — Super Admin & Modules */
+.admin-nav-group nav a {
+  color: #ffd9a8;
+  background: rgba(255, 177, 75, .09);
+}
+
+.access-state-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(107, 84, 255, .14), transparent 30rem),
+    #f7f8fc;
+}
+
+.access-state-card {
+  width: min(100%, 620px);
+  padding: 42px;
+  border: 1px solid #e1e4ed;
+  border-radius: 22px;
+  background: white;
+  box-shadow: 0 25px 70px rgba(30, 34, 66, .12);
+  text-align: center;
+}
+
+.access-state-card h1 {
+  margin: 10px 0 15px;
+  font-size: 34px;
+  letter-spacing: -.045em;
+}
+
+.access-state-card > p:not(.eyebrow) {
+  margin: 0 auto 25px;
+  color: #74798c;
+  line-height: 1.7;
+}
+
+.access-state-icon {
+  font-size: 40px;
+}
+
+.platform-admin-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  color: #1c1f2e;
+  background: #f5f6fa;
+}
+
+.platform-admin-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px;
+  color: white;
+  background: #181728;
+}
+
+.platform-admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px;
+  color: white;
+  text-decoration: none;
+}
+
+.platform-admin-brand > span {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7762ff, #5037da);
+  font-weight: 900;
+}
+
+.platform-admin-brand strong,
+.platform-admin-brand small {
+  display: block;
+}
+
+.platform-admin-brand small {
+  margin-top: 2px;
+  color: rgba(255,255,255,.52);
+  font-size: 9px;
+}
+
+.platform-admin-sidebar nav {
+  display: grid;
+  gap: 7px;
+  margin-top: 36px;
+}
+
+.platform-admin-sidebar nav a {
+  padding: 12px 13px;
+  border-radius: 10px;
+  color: rgba(255,255,255,.72);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.platform-admin-sidebar nav a:hover {
+  color: white;
+  background: rgba(255,255,255,.09);
+}
+
+.platform-admin-user {
+  display: grid;
+  gap: 3px;
+  margin-top: auto;
+  padding: 13px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  background: rgba(255,255,255,.05);
+}
+
+.platform-admin-user small {
+  overflow: hidden;
+  color: rgba(255,255,255,.52);
+  font-size: 9px;
+  text-overflow: ellipsis;
+}
+
+.platform-admin-content {
+  min-width: 0;
+  padding: 36px clamp(24px, 4vw, 58px) 60px;
+}
+
+.platform-admin-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.platform-admin-heading h1 {
+  margin: 5px 0 9px;
+  font-size: 35px;
+  letter-spacing: -.05em;
+}
+
+.platform-admin-heading p:last-child {
+  margin: 0;
+  color: #777c8e;
+  font-size: 12px;
+}
+
+.platform-admin-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.platform-admin-kpis article {
+  padding: 20px;
+  border: 1px solid #e2e5ed;
+  border-radius: 15px;
+  background: white;
+  box-shadow: 0 10px 30px rgba(27,31,58,.05);
+}
+
+.platform-admin-kpis span {
+  display: block;
+  color: #818697;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.platform-admin-kpis strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 28px;
+}
+
+.platform-admin-table-card,
+.platform-admin-card {
+  border: 1px solid #e1e4ec;
+  border-radius: 17px;
+  background: white;
+  box-shadow: 0 12px 35px rgba(27,31,58,.055);
+}
+
+.platform-admin-table-header,
+.platform-admin-card-header {
+  padding: 20px 22px;
+  border-bottom: 1px solid #eceef3;
+}
+
+.platform-admin-table-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.platform-admin-table-header h2,
+.platform-admin-card-header h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.platform-admin-table-header span,
+.platform-admin-card-header p {
+  margin: 0;
+  color: #898e9e;
+  font-size: 9px;
+}
+
+.platform-admin-table-wrap {
+  overflow-x: auto;
+}
+
+.platform-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.platform-admin-table th,
+.platform-admin-table td {
+  padding: 15px 16px;
+  border-bottom: 1px solid #eef0f4;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.platform-admin-table th {
+  color: #888d9d;
+  background: #fafbfc;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.platform-admin-table td strong,
+.platform-admin-table td small {
+  display: block;
+}
+
+.platform-admin-table td small {
+  margin-top: 3px;
+  color: #9195a3;
+}
+
+.platform-admin-table td > a {
+  color: #6653e8;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.module-count-badge,
+.company-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.module-count-badge {
+  color: #5845ca;
+  background: #efecff;
+}
+
+.company-status-badge.active {
+  color: #197250;
+  background: #eaf8f1;
+}
+
+.company-status-badge.suspended {
+  color: #a03f3f;
+  background: #fff0f0;
+}
+
+.platform-admin-form-grid,
+.platform-company-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.platform-admin-card {
+  padding-bottom: 22px;
+}
+
+.platform-admin-card > label,
+.platform-admin-card > form,
+.platform-admin-card > .admin-members-list {
+  margin-left: 22px;
+  margin-right: 22px;
+}
+
+.platform-admin-card > label {
+  display: grid;
+  gap: 7px;
+  margin-top: 15px;
+  color: #595e70;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.platform-admin-card input,
+.platform-admin-card select {
+  width: 100%;
+  height: 43px;
+  padding: 0 11px;
+  border: 1px solid #dfe2e9;
+  border-radius: 10px;
+  background: #fbfcfe;
+  font: inherit;
+}
+
+.platform-admin-card label small {
+  color: #999dab;
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.modules-selection-card,
+.modules-management-card,
+.platform-admin-submit {
+  grid-column: 1 / -1;
+}
+
+.admin-module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+  margin: 20px 22px;
+}
+
+.admin-module-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid #e3e5ec;
+  border-radius: 12px;
+  background: #fbfcfe;
+  cursor: pointer;
+}
+
+.admin-module-option:has(input:checked) {
+  border-color: #8070f1;
+  background: #f4f1ff;
+}
+
+.admin-module-option input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #6653e8;
+}
+
+.admin-module-option strong,
+.admin-module-option small {
+  display: block;
+}
+
+.admin-module-option strong {
+  color: #343748;
+  font-size: 10px;
+}
+
+.admin-module-option small {
+  margin-top: 4px;
+  color: #858a9b;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.platform-admin-submit {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.platform-company-grid {
+  align-items: start;
+}
+
+.admin-members-list {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+}
+
+.admin-members-list > div {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e7e9ef;
+  border-radius: 11px;
+}
+
+.admin-members-list > div > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #5a46cf;
+  background: #efecff;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.admin-members-list strong,
+.admin-members-list small {
+  display: block;
+}
+
+.admin-members-list small {
+  margin-top: 2px;
+  color: #8f93a0;
+  font-size: 8px;
+}
+
+.admin-members-list em {
+  color: #6e7280;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+@media (max-width: 1000px) {
+  .platform-admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-admin-sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .platform-admin-sidebar nav {
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 20px;
+  }
+
+  .platform-admin-user {
+    margin-top: 20px;
+  }
+
+  .admin-module-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .platform-admin-heading,
+  .platform-admin-form-grid,
+  .platform-company-grid,
+  .platform-admin-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-admin-heading {
+    display: grid;
+  }
+
+  .modules-selection-card,
+  .modules-management-card,
+  .platform-admin-submit {
+    grid-column: auto;
+  }
+
+  .admin-module-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-admin-content {
+    padding: 25px 15px 45px;
+  }
+}

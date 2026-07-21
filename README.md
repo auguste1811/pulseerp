@@ -50,3 +50,8 @@ Voir `V3.4-OCR-PRO.md`.
 ## Essai et abonnements v3.5
 
 Voir `V3.5-TRIAL-ABONNEMENTS.md`.
+
+
+## Super Admin & Modules v3.7
+
+Voir `V3.7-SUPER-ADMIN-MODULES.md`.

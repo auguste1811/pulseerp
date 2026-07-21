@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSubscriptionAccess } from "@/lib/subscription";
+import { getEnabledModuleCodes, isPlatformAdminIdentity } from "@/lib/platform-access";
 
 export type SessionPayload = {
   userId: string;
@@ -58,10 +59,24 @@ export async function currentContext(options?: { allowExpired?: boolean }) {
     redirect("/login");
   }
 
-  const subscription = await requireSubscriptionAccess(
-    membership.company.id,
-    { allowExpired: options?.allowExpired },
-  );
+  const [subscription, enabledModules] = await Promise.all([
+    requireSubscriptionAccess(
+      membership.company.id,
+      { allowExpired: options?.allowExpired },
+    ),
+    getEnabledModuleCodes(membership.company.id),
+  ]);
+
+  const companyExpired =
+    membership.company.accessExpiresAt &&
+    membership.company.accessExpiresAt.getTime() <= Date.now();
+
+  if (
+    membership.company.status !== "ACTIVE" ||
+    companyExpired
+  ) {
+    redirect("/access-suspended");
+  }
 
   return {
     user_id: membership.user.id,
@@ -72,5 +87,9 @@ export async function currentContext(options?: { allowExpired?: boolean }) {
     company_name: membership.company.name,
     role: membership.role,
     subscription,
+    enabled_modules: Array.from(enabledModules),
+    is_platform_admin: isPlatformAdminIdentity(membership.user),
+    company_status: membership.company.status,
+    company_access_expires_at: membership.company.accessExpiresAt,
   };
 }

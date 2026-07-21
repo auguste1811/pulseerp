@@ -1,7 +1,11 @@
 import { currentContext } from "@/lib/auth";
 import { EnterpriseShell } from "./components/enterprise-shell";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const member = await currentContext();
 
   return (
@@ -10,8 +14,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       firstName={member.first_name}
       lastName={member.last_name}
       role={member.role}
-      trialDaysRemaining={0}
-      showTrialBanner={false}
+      enabledModules={member.enabled_modules}
+      isPlatformAdmin={member.is_platform_admin}
     >
       {children}
     </EnterpriseShell>
