@@ -36,6 +36,7 @@ model User {
   notifications      Notification[]
   accounts           Account[]
   sessions           Session[]
+  uploadedPurchaseInvoices PurchaseInvoice[]
 
   @@map("users")
 }
@@ -134,6 +135,8 @@ model Company {
   automations        Automation[]
   automationRuns     AutomationRun[]
   notifications      Notification[]
+  purchaseInvoices    PurchaseInvoice[]
+  accountingEntries   AccountingEntry[]
 
   @@map("companies")
 }
@@ -226,7 +229,11 @@ model Transaction {
   vatAmount          Decimal  @map("vat_amount")
   amountIncludingTax Decimal  @map("amount_including_tax")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  salesDocumentId    String?  @unique @map("sales_document_id")
+  purchaseInvoiceId  String?  @unique @map("purchase_invoice_id")
   company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  salesDocument      SalesDocument? @relation(fields: [salesDocumentId], references: [id], onDelete: SetNull)
+  purchaseInvoice    PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id], onDelete: SetNull)
 
   @@map("transactions")
 }
@@ -305,6 +312,7 @@ model SalesDocument {
   sourceQuote   SalesDocument? @relation("QuoteConversion", fields: [sourceQuoteId], references: [id], onDelete: SetNull)
   derivedDocs   SalesDocument[] @relation("QuoteConversion")
   items         SalesDocumentItem[]
+  accountingTransaction Transaction?
 
   @@unique([companyId, documentNumber])
   @@index([companyId, documentType, issueDate(sort: Desc)], map: "sales_documents_company_type_idx")
@@ -452,4 +460,56 @@ model Notification {
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+
+model PurchaseInvoice {
+  id            String   @id @default(cuid())
+  companyId     String   @map("company_id")
+  uploadedBy    String?  @map("uploaded_by")
+  supplierName  String   @map("supplier_name")
+  invoiceNumber String?  @map("invoice_number")
+  issueDate     DateTime @map("issue_date") @db.Date
+  dueDate       DateTime? @map("due_date") @db.Date
+  category      String   @default("TO_CLASSIFY")
+  status        String   @default("PENDING")
+  subtotal      Decimal  @default(0)
+  vatAmount     Decimal  @default(0) @map("vat_amount")
+  total         Decimal  @default(0)
+  notes         String?
+  originalName  String   @map("original_name")
+  mimeType      String   @map("mime_type")
+  sizeBytes     Int      @map("size_bytes")
+  fileData      Bytes    @map("file_data")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploader      User?    @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+  transaction   Transaction?
+  entries       AccountingEntry[]
+
+  @@index([companyId, issueDate(sort: Desc)])
+  @@index([companyId, category, status])
+  @@map("purchase_invoices")
+}
+
+model AccountingEntry {
+  id                String   @id @default(cuid())
+  companyId         String   @map("company_id")
+  purchaseInvoiceId String?  @map("purchase_invoice_id")
+  entryDate         DateTime @map("entry_date") @db.Date
+  journal           String
+  accountNumber     String   @map("account_number")
+  label             String
+  debit             Decimal  @default(0)
+  credit            Decimal  @default(0)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseInvoice PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, entryDate(sort: Desc)])
+  @@index([purchaseInvoiceId])
+  @@map("accounting_entries")
 }

@@ -4,10 +4,10 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import type { PoolClient } from "pg";
 import { currentContext } from "@/lib/auth";
 import { emitAutomationEvent } from "@/lib/automation-engine";
 import { pool, query } from "@/lib/db";
-import type { PoolClient } from "pg";
 
 const documentTypes = ["QUOTE", "INVOICE"] as const;
 const documentStatuses = [
@@ -38,7 +38,7 @@ async function nextDocumentNumber(
   documentType: "QUOTE" | "INVOICE",
 ): Promise<string> {
   const year = new Date().getFullYear();
-  
+
   const result = await client.query<{ current_value: number }>(
     `
     INSERT INTO document_sequences (
@@ -72,6 +72,60 @@ async function nextDocumentNumber(
       : settings?.invoice_prefix || "FAC";
 
   return `${prefix}-${year}-${String(result.rows[0].current_value).padStart(4, "0")}`;
+}
+
+
+async function syncInvoiceWithAccounting(
+  companyId: string,
+  invoiceId: string,
+) {
+  await query(
+    `
+    INSERT INTO transactions (
+      id, company_id, type, status, date, label, category,
+      amount_excluding_tax, vat_rate, vat_amount,
+      amount_including_tax, sales_document_id, created_at
+    )
+    SELECT
+      gen_random_uuid()::text,
+      d.company_id,
+      'INCOME',
+      CASE
+        WHEN d.status = 'PAID' THEN 'PAID'
+        WHEN d.status = 'OVERDUE' THEN 'OVERDUE'
+        ELSE 'PENDING'
+      END,
+      d.issue_date,
+      'Facture ' || d.document_number ||
+        COALESCE(' — ' || NULLIF(TRIM(c.company_name), ''), ''),
+      'Vente',
+      d.subtotal,
+      CASE WHEN d.subtotal > 0
+        THEN ROUND((d.vat_amount / d.subtotal) * 100, 2)
+        ELSE 0
+      END,
+      d.vat_amount,
+      d.total,
+      d.id,
+      NOW()
+    FROM sales_documents d
+    LEFT JOIN contacts c ON c.id = d.contact_id
+    WHERE d.id = $1
+      AND d.company_id = $2
+      AND d.document_type = 'INVOICE'
+      AND d.status <> 'CANCELLED'
+    ON CONFLICT (sales_document_id)
+    DO UPDATE SET
+      status = EXCLUDED.status,
+      date = EXCLUDED.date,
+      label = EXCLUDED.label,
+      amount_excluding_tax = EXCLUDED.amount_excluding_tax,
+      vat_rate = EXCLUDED.vat_rate,
+      vat_amount = EXCLUDED.vat_amount,
+      amount_including_tax = EXCLUDED.amount_including_tax
+    `,
+    [invoiceId, companyId],
+  );
 }
 
 export async function createSalesDocument(formData: FormData) {
@@ -222,6 +276,11 @@ export async function createSalesDocument(formData: FormData) {
     client.release();
   }
 
+  if (parsed.data.documentType === "INVOICE") {
+    await syncInvoiceWithAccounting(member.company_id, documentId);
+    revalidatePath("/transactions");
+  }
+
   await emitAutomationEvent(
     member.company_id,
     "INVOICE_CREATED",
@@ -366,6 +425,11 @@ export async function updateDocumentStatus(formData: FormData) {
     [documentId, member.company_id, status],
   );
 
+  if (updated[0]) {
+    await syncInvoiceWithAccounting(member.company_id, documentId);
+    revalidatePath("/transactions");
+  }
+
   if (status === "PAID" && updated[0]) {
     await emitAutomationEvent(
       member.company_id,
@@ -494,7 +558,9 @@ export async function convertQuoteToInvoice(formData: FormData) {
     client.release();
   }
 
+  await syncInvoiceWithAccounting(member.company_id, invoiceId);
   revalidatePath("/billing");
+  revalidatePath("/transactions");
   redirect(`/billing/${invoiceId}?converted=1`);
 }
 
