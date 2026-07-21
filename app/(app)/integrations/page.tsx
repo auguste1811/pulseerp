@@ -2,7 +2,6 @@ import { currentContext } from "@/lib/auth";
 import { query } from "@/lib/db";
 import {
   connectBridge,
-  connectStripe,
   disconnectIntegration,
 } from "./actions";
 import { SyncButton } from "./sync-button";
@@ -114,8 +113,7 @@ export default async function IntegrationsPage({
                 )}
 
                 {!connection && provider === "STRIPE" && (
-                  <form action={connectStripe} className={styles.form}>
-                    <input name="apiKey" type="password" placeholder="Clé secrète Stripe sk_..." required />
+                  <form action="/api/integrations/stripe/connect" method="post">
                     <button type="submit">Connecter Stripe</button>
                   </form>
                 )}
@@ -134,6 +132,11 @@ export default async function IntegrationsPage({
 
                 {connection && provider === "GOOGLE" && <SyncButton provider="google" />}
                 {connection && provider === "MICROSOFT" && <SyncButton provider="microsoft" />}
+                {connection && provider === "STRIPE" && (
+                  <form action="/api/integrations/stripe/sync" method="post">
+                    <button type="submit">Actualiser</button>
+                  </form>
+                )}
 
                 {connection && (
                   <form action={disconnectIntegration}>
@@ -148,8 +151,7 @@ export default async function IntegrationsPage({
       </section>
 
       <div className={styles.notice}>
-        Les connexions Google et Microsoft utilisent OAuth 2.0. Stripe est
-        validé directement auprès de l’API Stripe. Bridge enregistre les
+        Les connexions Google et Microsoft utilisent OAuth 2.0. Stripe utilise Connect Onboarding : le client autorise son propre compte sans saisir de clé API. Bridge enregistre les
         identifiants du projet ; l’ouverture du parcours bancaire utilisateur
         nécessite ensuite un compte Bridge actif.
       </div>

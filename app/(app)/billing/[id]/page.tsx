@@ -30,7 +30,7 @@ export default async function BillingDetail({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [documents, items] = await Promise.all([
+  const [documents, items, stripeConnections] = await Promise.all([
     query<any>(
       `
       SELECT d.*, c.first_name, c.last_name, c.company_name,
@@ -51,10 +51,24 @@ export default async function BillingDetail({
       `,
       [id],
     ),
+    query<any>(
+      `
+      SELECT status, settings
+      FROM integration_connections
+      WHERE company_id=$1 AND provider='STRIPE'
+      LIMIT 1
+      `,
+      [member.company_id],
+    ),
   ]);
 
   const document = documents[0];
   if (!document) notFound();
+  const stripeConnection = stripeConnections[0];
+  const stripeSettings = stripeConnection?.settings || {};
+  const stripeReady = Boolean(
+    stripeSettings.accountId && stripeSettings.chargesEnabled,
+  );
 
   return (
     <>
@@ -89,6 +103,20 @@ export default async function BillingDetail({
         <div className="import-alert success">
           <strong>Document enregistré.</strong>
           <span>Les informations sont à jour.</span>
+        </div>
+      )}
+
+      {feedback.payment === "success" && (
+        <div className="import-alert success">
+          <strong>Paiement reçu.</strong>
+          <span>Stripe confirme le règlement. Le statut sera synchronisé par webhook.</span>
+        </div>
+      )}
+
+      {feedback.payment && feedback.payment !== "success" && (
+        <div className="import-alert error">
+          <strong>Paiement non finalisé.</strong>
+          <span>Le paiement a été annulé ou Stripe n’est pas encore disponible.</span>
         </div>
       )}
 
@@ -148,6 +176,24 @@ export default async function BillingDetail({
             <div><span>TVA</span><strong>{euro(Number(document.vat_amount))}</strong></div>
             <div className="grand-total"><span>Total TTC</span><strong>{euro(Number(document.total))}</strong></div>
           </article>
+
+          {document.document_type === "INVOICE" && document.status !== "PAID" && (
+            <article className="dashboard-panel conversion-card">
+              <h2>Paiement en ligne</h2>
+              <p>Encaissez cette facture sur le compte Stripe de votre entreprise.</p>
+              {stripeReady ? (
+                <form action={`/api/stripe/invoices/${document.id}/checkout`} method="post">
+                  <button className="primary-action full-width" type="submit">
+                    Créer le paiement Stripe
+                  </button>
+                </form>
+              ) : (
+                <Link className="secondary-action full-width" href="/integrations">
+                  Configurer Stripe
+                </Link>
+              )}
+            </article>
+          )}
 
           <article className="dashboard-panel">
             <div className="panel-header"><div><h2>Statut</h2><p>Mettez à jour le suivi</p></div></div>
