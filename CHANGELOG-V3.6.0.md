@@ -1,0 +1,5 @@
+- Désactivation propre de Stripe Billing et Stripe Connect dans l’interface.
+- Accès gratuit permanent pendant la phase bêta.
+- Suppression du verrouillage après essai.
+- Routes d’abonnement redirigées vers la page Preview.
+- Aucun changement des variables d’environnement.

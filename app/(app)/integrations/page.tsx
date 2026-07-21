@@ -10,7 +10,7 @@ import styles from "./integrations.module.css";
 const apps = [
   ["GOOGLE", "Google Calendar", "Synchronisez les rendez-vous et événements.", "google", "Calendrier"],
   ["MICROSOFT", "Microsoft 365", "Outlook Calendar, Microsoft Graph et email.", "microsoft", "Productivité"],
-  ["STRIPE", "Stripe", "Encaissez les factures et suivez les paiements.", "stripe", "Paiement"],
+  ["STRIPE", "Stripe", "Paiements en ligne — bientôt disponible.", "stripe", "Bientôt"],
   ["BRIDGE", "Bridge Banking", "Connectez les comptes bancaires via DSP2.", "bridge", "Banque"],
   ["GOOGLE_DRIVE", "Google Drive", "Archivez automatiquement vos documents.", "drive", "Stockage"],
   ["SLACK", "Slack", "Envoyez les alertes PulseERP dans vos canaux.", "slack", "Communication"],
@@ -112,10 +112,8 @@ export default async function IntegrationsPage({
                   <a href="/api/integrations/microsoft/start">Connecter Microsoft</a>
                 )}
 
-                {!connection && provider === "STRIPE" && (
-                  <form action="/api/integrations/stripe/connect" method="post">
-                    <button type="submit">Connecter Stripe</button>
-                  </form>
+                {provider === "STRIPE" && (
+                  <button type="button" disabled>Bientôt disponible</button>
                 )}
 
                 {!connection && provider === "BRIDGE" && (
@@ -132,11 +130,7 @@ export default async function IntegrationsPage({
 
                 {connection && provider === "GOOGLE" && <SyncButton provider="google" />}
                 {connection && provider === "MICROSOFT" && <SyncButton provider="microsoft" />}
-                {connection && provider === "STRIPE" && (
-                  <form action="/api/integrations/stripe/sync" method="post">
-                    <button type="submit">Actualiser</button>
-                  </form>
-                )}
+
 
                 {connection && (
                   <form action={disconnectIntegration}>
@@ -151,9 +145,7 @@ export default async function IntegrationsPage({
       </section>
 
       <div className={styles.notice}>
-        Les connexions Google et Microsoft utilisent OAuth 2.0. Stripe utilise Connect Onboarding : le client autorise son propre compte sans saisir de clé API. Bridge enregistre les
-        identifiants du projet ; l’ouverture du parcours bancaire utilisateur
-        nécessite ensuite un compte Bridge actif.
+        Les connexions Google et Microsoft utilisent OAuth 2.0. Les paiements en ligne sont temporairement désactivés pendant la stabilisation. Bridge enregistre les identifiants du projet ; l’ouverture du parcours bancaire utilisateur nécessite ensuite un compte Bridge actif.
       </div>
     </div>
   );

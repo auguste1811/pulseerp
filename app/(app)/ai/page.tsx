@@ -39,7 +39,7 @@ export default async function PulseAIPage({
 
       {conversations.length > 0 && (
         <nav className={styles.history}>
-          {conversations.map((item) => (
+          {conversations.map((item: any) => (
             <Link
               className={item.id === selected?.id ? styles.active : ""}
               href={`/ai?conversation=${item.id}`}
@@ -54,7 +54,7 @@ export default async function PulseAIPage({
 
       <PulseAIClient
         initialConversationId={selected?.id}
-        initialMessages={(selected?.messages || []).map((item) => ({
+        initialMessages={(selected?.messages || []).map((item: any) => ({
           role: item.role === "assistant" ? "assistant" : "user",
           content: item.content,
         }))}

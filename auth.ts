@@ -221,7 +221,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         displayName.split(/\s+/).filter(Boolean);
       const lastName = lastParts.join(" ");
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.user.update({
           where: { id: user.id },
           data: {

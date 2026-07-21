@@ -79,7 +79,7 @@ export async function applyPurchaseInvoiceOcr(formData: FormData) {
       : ""
   }`;
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: any) => {
     await tx.purchaseInvoice.update({
       where: { id: invoice.id },
       data: {

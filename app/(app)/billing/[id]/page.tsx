@@ -180,18 +180,10 @@ export default async function BillingDetail({
           {document.document_type === "INVOICE" && document.status !== "PAID" && (
             <article className="dashboard-panel conversion-card">
               <h2>Paiement en ligne</h2>
-              <p>Encaissez cette facture sur le compte Stripe de votre entreprise.</p>
-              {stripeReady ? (
-                <form action={`/api/stripe/invoices/${document.id}/checkout`} method="post">
-                  <button className="primary-action full-width" type="submit">
-                    Créer le paiement Stripe
-                  </button>
-                </form>
-              ) : (
-                <Link className="secondary-action full-width" href="/integrations">
-                  Configurer Stripe
-                </Link>
-              )}
+              <p>Cette fonction sera disponible après la phase de stabilisation.</p>
+              <button className="secondary-action full-width" type="button" disabled>
+                Bientôt disponible
+              </button>
             </article>
           )}
 
