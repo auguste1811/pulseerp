@@ -42,7 +42,7 @@ export async function requirePlatformAdmin() {
   const { auth } = await import("@/auth");
   const session = await auth();
 
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) redirect("/developer/login");
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -56,7 +56,11 @@ export async function requirePlatformAdmin() {
     },
   });
 
-  if (!user?.isActive || !isPlatformAdminIdentity(user)) {
+  if (!user?.isActive) {
+    redirect("/developer/login?error=credentials");
+  }
+
+  if (!isPlatformAdminIdentity(user)) {
     notFound();
   }
 

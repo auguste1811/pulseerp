@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { signOut } from "@/auth";
 import { requirePlatformAdmin } from "@/lib/platform-access";
 
 export default async function AdminLayout({
@@ -22,7 +23,7 @@ export default async function AdminLayout({
         <nav>
           <Link href="/admin">Entreprises</Link>
           <Link href="/admin/new">Créer une entreprise</Link>
-          <Link href="/dashboard">Retour à PulseERP</Link>
+          <Link href="/dashboard">Espace client</Link>
         </nav>
 
         <div className="platform-admin-user">
@@ -30,6 +31,15 @@ export default async function AdminLayout({
             {admin.firstName} {admin.lastName}
           </strong>
           <small>{admin.email}</small>
+
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/developer/login" });
+            }}
+          >
+            <button type="submit">Se déconnecter</button>
+          </form>
         </div>
       </aside>
 

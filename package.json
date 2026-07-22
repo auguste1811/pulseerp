@@ -1,6 +1,6 @@
 {
   "name": "pulseerp",
-  "version": "3.7.0",
+  "version": "3.7.1",
   "private": true,
   "engines": {
     "node": ">=22 <27",
@@ -17,7 +17,8 @@
     "setup": "npm run db:migrate && npm run db:seed",
     "auth:secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64url'))\"",
     "vercel-build": "prisma generate && next build",
-    "platform:promote": "tsx scripts/promote-platform-admin.ts"
+    "platform:promote": "tsx scripts/promote-platform-admin.ts",
+    "platform:create-admin": "tsx scripts/create-platform-admin.ts"
   },
   "dependencies": {
     "bcryptjs": "3.0.2",
