@@ -570,3 +570,94 @@ export async function deleteContact(formData: FormData) {
   revalidatePath("/contacts/pipeline");
   redirect("/contacts?deleted=1");
 }
+
+
+export async function scheduleContactMeeting(formData: FormData) {
+  const member = await currentContext();
+  const contactId = String(formData.get("contactId") || "");
+  const title = String(formData.get("title") || "").trim();
+  const startAtRaw = String(formData.get("startAt") || "");
+  const durationMinutes = Number(formData.get("durationMinutes") || 60);
+  const location = String(formData.get("location") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+
+  if (
+    !contactId ||
+    title.length < 2 ||
+    !startAtRaw ||
+    !Number.isFinite(durationMinutes) ||
+    durationMinutes < 15 ||
+    durationMinutes > 480
+  ) {
+    redirect(`/contacts/${contactId}?meetingError=invalid`);
+  }
+
+  const contact = await query<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    company_name: string | null;
+  }>(
+    `
+    SELECT id, first_name, last_name, company_name
+    FROM contacts
+    WHERE id=$1 AND company_id=$2
+    LIMIT 1
+    `,
+    [contactId, member.company_id],
+  );
+
+  if (!contact[0]) redirect("/contacts");
+
+  const startAt = new Date(startAtRaw);
+  if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
+    redirect(`/contacts/${contactId}?meetingError=date`);
+  }
+
+  const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
+  const eventId = randomUUID();
+
+  await query(
+    `
+    INSERT INTO calendar_events (
+      id, company_id, contact_id, assigned_user_id,
+      title, description, event_type, status,
+      start_at, end_at, location, reminder_minutes, created_by
+    )
+    VALUES ($1,$2,$3,$4,$5,$6,'MEETING','PLANNED',$7,$8,$9,30,$10)
+    `,
+    [
+      eventId,
+      member.company_id,
+      contactId,
+      member.user_id,
+      title,
+      description || null,
+      startAt.toISOString(),
+      endAt.toISOString(),
+      location || null,
+      member.user_id,
+    ],
+  );
+
+  await query(
+    `
+    INSERT INTO contact_activities (
+      id, company_id, contact_id, actor_id, type, title, description
+    )
+    VALUES ($1,$2,$3,$4,'MEETING','Prochain rendez-vous planifié',$5)
+    `,
+    [
+      randomUUID(),
+      member.company_id,
+      contactId,
+      member.user_id,
+      `${title} — ${startAt.toLocaleString("fr-FR")}`,
+    ],
+  );
+
+  revalidatePath(`/contacts/${contactId}`);
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
+  redirect(`/contacts/${contactId}?meetingCreated=1`);
+}

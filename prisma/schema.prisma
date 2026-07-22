@@ -39,6 +39,7 @@ model User {
   sessions           Session[]
   uploadedPurchaseInvoices PurchaseInvoice[]
   aiConversations          AiConversation[]
+  managedAcquisitionChannels AcquisitionChannel[] @relation("AcquisitionManager")
 
   @@map("users")
 }
@@ -144,6 +145,7 @@ model Company {
   aiConversations     AiConversation[]
   subscription        Subscription?
   enabledModules      CompanyModule[]
+  acquisitionChannels AcquisitionChannel[]
 
   @@map("companies")
 }
@@ -235,6 +237,7 @@ model Transaction {
   vatRate            Decimal  @map("vat_rate")
   vatAmount          Decimal  @map("vat_amount")
   amountIncludingTax Decimal  @map("amount_including_tax")
+  revenueSource      String?  @map("revenue_source")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   salesDocumentId    String?  @unique @map("sales_document_id")
   purchaseInvoiceId  String?  @unique @map("purchase_invoice_id")
@@ -612,4 +615,41 @@ model CompanyModule {
   @@id([companyId, moduleId])
   @@index([companyId, enabled])
   @@map("company_modules")
+}
+
+
+model AcquisitionChannel {
+  id            String   @id @default(cuid())
+  companyId     String   @map("company_id")
+  code          String
+  name          String
+  managerUserId String?  @map("manager_user_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  manager User?   @relation("AcquisitionManager", fields: [managerUserId], references: [id], onDelete: SetNull)
+  metrics AcquisitionMetric[]
+
+  @@unique([companyId, code])
+  @@index([companyId, isActive])
+  @@map("acquisition_channels")
+}
+
+model AcquisitionMetric {
+  id                String   @id @default(cuid())
+  channelId         String   @map("channel_id")
+  month             DateTime @db.Date
+  spend             Decimal  @default(0)
+  attributedRevenue Decimal  @default(0) @map("attributed_revenue")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  channel AcquisitionChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, month])
+  @@index([month])
+  @@map("acquisition_metrics")
 }

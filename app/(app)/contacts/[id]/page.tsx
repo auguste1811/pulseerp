@@ -9,6 +9,7 @@ import {
   addContactNote,
   deleteContact,
   updateContact,
+  scheduleContactMeeting,
 } from "../actions";
 
 const statuses: Record<string, string> = {
@@ -42,7 +43,7 @@ export default async function ContactDetails({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [contacts, notes, activities] = await Promise.all([
+  const [contacts, notes, activities, nextMeetings] = await Promise.all([
     query<any>(
       `
       SELECT c.*, u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
@@ -74,9 +75,23 @@ export default async function ContactDetails({
       `,
       [id, member.company_id],
     ),
+    query<any>(
+      `
+      SELECT id, title, start_at, end_at, location
+      FROM calendar_events
+      WHERE contact_id=$1
+        AND company_id=$2
+        AND status='PLANNED'
+        AND start_at>=NOW()
+      ORDER BY start_at
+      LIMIT 1
+      `,
+      [id, member.company_id],
+    ),
   ]);
 
   const contact = contacts[0];
+  const nextMeeting = nextMeetings[0];
   if (!contact) notFound();
 
   return (
@@ -96,7 +111,7 @@ export default async function ContactDetails({
         </div>
       </section>
 
-      {(feedback.saved || feedback.noteAdded || feedback.activityAdded) && (
+      {(feedback.saved || feedback.noteAdded || feedback.activityAdded || feedback.meetingCreated) && (
         <div className="import-alert success">
           <strong>Enregistré.</strong>
           <span>Les informations de la fiche client ont été mises à jour.</span>
@@ -140,7 +155,22 @@ export default async function ContactDetails({
               </div>
               <div className="form-row">
                 <label>Entreprise<input name="companyName" defaultValue={contact.company_name ?? ""} /></label>
-                <label>Source<input name="source" defaultValue={contact.source ?? ""} /></label>
+                <label>Source
+                  <select name="source" defaultValue={contact.source ?? ""}>
+                    <option value="">Non renseignée</option>
+                    <option value="Ads">Ads</option>
+                    <option value="Clipping">Clipping</option>
+                    <option value="UGC / Affilié">UGC / Affilié</option>
+                    <option value="Influenceur">Influenceur</option>
+                    <option value="Organique">Organique</option>
+                    <option value="Site comparatif">Site comparatif</option>
+                    <option value={contact.source ?? ""}>
+                      {contact.source && !["Ads","Clipping","UGC / Affilié","Influenceur","Organique","Site comparatif"].includes(contact.source)
+                        ? contact.source
+                        : "Autre"}
+                    </option>
+                  </select>
+                </label>
               </div>
               <div className="form-row">
                 <label>Email<input name="email" type="email" defaultValue={contact.email ?? ""} /></label>
@@ -171,6 +201,76 @@ export default async function ContactDetails({
                 <label>Tags<input name="tags" defaultValue={(contact.tags ?? []).join(", ")} placeholder="VIP, relance, premium" /></label>
               </div>
               <button className="primary-action" type="submit">Enregistrer les modifications</button>
+            </form>
+          </article>
+
+
+          <article className="dashboard-panel contact-next-meeting-card">
+            <div className="panel-header">
+              <div>
+                <h2>Prochain rendez-vous</h2>
+                <p>
+                  Le rendez-vous créé ici est ajouté automatiquement au calendrier.
+                </p>
+              </div>
+            </div>
+
+            {nextMeeting && (
+              <div className="next-meeting-summary">
+                <span>Prochain</span>
+                <strong>{nextMeeting.title}</strong>
+                <small>
+                  {new Date(nextMeeting.start_at).toLocaleString("fr-FR")}
+                  {nextMeeting.location ? ` · ${nextMeeting.location}` : ""}
+                </small>
+                <Link href={`/calendar/${nextMeeting.id}`}>Ouvrir dans le calendrier →</Link>
+              </div>
+            )}
+
+            {feedback.meetingError && (
+              <div className="import-alert error">
+                <strong>Rendez-vous non créé.</strong>
+                <span>Vérifiez la date et les informations saisies.</span>
+              </div>
+            )}
+
+            <form action={scheduleContactMeeting} className="premium-form">
+              <input type="hidden" name="contactId" value={contact.id} />
+              <label>
+                Objet
+                <input
+                  name="title"
+                  defaultValue={`Rendez-vous — ${contact.first_name} ${contact.last_name}`}
+                  required
+                />
+              </label>
+              <div className="form-row">
+                <label>
+                  Date et heure
+                  <input name="startAt" type="datetime-local" required />
+                </label>
+                <label>
+                  Durée
+                  <select name="durationMinutes" defaultValue="60">
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">1 heure</option>
+                    <option value="90">1 h 30</option>
+                    <option value="120">2 heures</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                Lieu
+                <input name="location" placeholder="Téléphone, visio, adresse..." />
+              </label>
+              <label>
+                Description
+                <textarea name="description" placeholder="Objectifs et informations du rendez-vous..." />
+              </label>
+              <button className="primary-action" type="submit">
+                Planifier et ajouter au calendrier
+              </button>
             </form>
           </article>
 

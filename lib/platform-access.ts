@@ -5,6 +5,7 @@ export const MODULE_CODES = [
   "DASHBOARD",
   "REPORTS",
   "CRM",
+  "ACQUISITION",
   "BILLING",
   "ACCOUNTING",
   "TASKS",

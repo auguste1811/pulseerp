@@ -124,7 +124,17 @@ export default async function Contacts({
             <label>Entreprise<input name="companyName" placeholder="LM Conseil" /></label>
             <label>Email<input name="email" type="email" placeholder="lucas@entreprise.fr" /></label>
             <label>Téléphone<input name="phone" placeholder="+33 6 00 00 00 00" /></label>
-            <label>Source<input name="source" placeholder="Google Ads, LinkedIn..." /></label>
+            <label>Source
+              <select name="source" defaultValue="">
+                <option value="">Non renseignée</option>
+                <option value="Ads">Ads</option>
+                <option value="Clipping">Clipping</option>
+                <option value="UGC / Affilié">UGC / Affilié</option>
+                <option value="Influenceur">Influenceur</option>
+                <option value="Organique">Organique</option>
+                <option value="Site comparatif">Site comparatif</option>
+              </select>
+            </label>
             <label>Étape commerciale
               <select name="status">
                 {Object.entries(statuses).map(([value, label]) => (
