@@ -32,9 +32,24 @@ const groups = [
     label: "Ventes",
     items: [
       { code: "CRM", href: "/contacts", label: "CRM", icon: "crm" },
-      { code: "ACQUISITION", href: "/acquisition", label: "Acquisition", icon: "reports" },
-      { code: "BILLING", href: "/billing", label: "Devis & factures", icon: "documents" },
-      { code: "ACCOUNTING", href: "/transactions", label: "Comptabilité", icon: "accounting" },
+      {
+        code: "ACQUISITION",
+        href: "/acquisition",
+        label: "Sources d’acquisition",
+        icon: "reports",
+      },
+      {
+        code: "BILLING",
+        href: "/billing",
+        label: "Devis & factures",
+        icon: "documents",
+      },
+      {
+        code: "ACCOUNTING",
+        href: "/transactions",
+        label: "Comptabilité",
+        icon: "accounting",
+      },
     ],
   },
   {
