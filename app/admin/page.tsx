@@ -1,30 +1,85 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requirePlatformAdmin } from "@/lib/platform-access";
+import { CompanySelectionTable } from "./company-selection-table";
 
-export default async function PlatformAdminDashboard() {
-  await requirePlatformAdmin();
+export default async function PlatformAdminDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    deleted?: string;
+    company?: string;
+    bulkDeleted?: string;
+    skipped?: string;
+    deleteError?: string;
+  }>;
+}) {
+  const admin = await requirePlatformAdmin();
+  const feedback = await searchParams;
 
-  const [companies, companyCount, activeCount, userCount] = await Promise.all([
-    prisma.company.findMany({
-      include: {
-        members: {
-          where: { role: "OWNER" },
-          include: { user: true },
-          take: 1,
+  const [companies, companyCount, activeCount, userCount, adminMemberships] =
+    await Promise.all([
+      prisma.company.findMany({
+        include: {
+          members: {
+            where: { role: "OWNER" },
+            include: { user: true },
+            take: 1,
+          },
+          enabledModules: {
+            where: { enabled: true },
+            include: { module: true },
+          },
+          _count: { select: { members: true } },
         },
-        enabledModules: {
-          where: { enabled: true },
-          include: { module: true },
-        },
-        _count: { select: { members: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.company.count(),
-    prisma.company.count({ where: { status: "ACTIVE" } }),
-    prisma.user.count({ where: { isActive: true } }),
-  ]);
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.company.count(),
+      prisma.company.count({ where: { status: "ACTIVE" } }),
+      prisma.user.count({ where: { isActive: true } }),
+      prisma.companyMember.findMany({
+        where: { userId: admin.id },
+        select: { companyId: true },
+      }),
+    ]);
+
+  const protectedIds = new Set(
+    adminMemberships.map((membership) => membership.companyId),
+  );
+
+  const rows = companies.map((company) => {
+    const owner = company.members[0]?.user;
+    const expired =
+      Boolean(company.accessExpiresAt) &&
+      company.accessExpiresAt!.getTime() <= Date.now();
+
+    return {
+      id: company.id,
+      name: company.name,
+      email: company.email,
+      ownerName: owner
+        ? `${owner.firstName} ${owner.lastName}`
+        : "Non défini",
+      ownerEmail: owner?.email || "",
+      memberCount: company._count.members,
+      moduleCount: company.enabledModules.length,
+      accessExpiresAt: company.accessExpiresAt?.toISOString() || null,
+      status: company.status,
+      expired,
+      protected: protectedIds.has(company.id),
+    };
+  });
+
+  const errorMessage =
+    feedback.deleteError === "selection"
+      ? "Sélectionnez au moins une entreprise."
+      : feedback.deleteError === "confirmation"
+        ? 'Tapez exactement « DELETE » pour confirmer.'
+        : feedback.deleteError === "protected"
+          ? "L’entreprise sélectionnée est protégée et ne peut pas être supprimée."
+          : feedback.deleteError
+            ? "La suppression n’a pas pu être effectuée."
+            : null;
 
   return (
     <>
@@ -41,6 +96,35 @@ export default async function PlatformAdminDashboard() {
           + Nouvelle entreprise
         </Link>
       </section>
+
+      {feedback.deleted && (
+        <div className="import-alert success">
+          <strong>Entreprise supprimée.</strong>
+          <span>
+            {feedback.company
+              ? `${feedback.company} et ses données liées ont été supprimées.`
+              : "L’entreprise et ses données liées ont été supprimées."}
+          </span>
+        </div>
+      )}
+
+      {feedback.bulkDeleted && (
+        <div className="import-alert success">
+          <strong>{feedback.bulkDeleted} entreprise(s) supprimée(s).</strong>
+          <span>
+            {Number(feedback.skipped || 0) > 0
+              ? `${feedback.skipped} élément(s) protégé(s) ou introuvable(s) ont été ignorés.`
+              : "Toutes les entreprises sélectionnées ont été supprimées."}
+          </span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="import-alert error">
+          <strong>Suppression impossible.</strong>
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       <section className="platform-admin-kpis">
         <article>
@@ -63,75 +147,7 @@ export default async function PlatformAdminDashboard() {
           <span>{companies.length} résultat(s)</span>
         </div>
 
-        <div className="platform-admin-table-wrap">
-          <table className="platform-admin-table">
-            <thead>
-              <tr>
-                <th>Entreprise</th>
-                <th>Responsable</th>
-                <th>Utilisateurs</th>
-                <th>Modules</th>
-                <th>Expiration</th>
-                <th>Statut</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {companies.map((company) => {
-                const owner = company.members[0]?.user;
-                const expired =
-                  company.accessExpiresAt &&
-                  company.accessExpiresAt.getTime() <= Date.now();
-
-                return (
-                  <tr key={company.id}>
-                    <td>
-                      <strong>{company.name}</strong>
-                      <small>{company.email || "Aucun email société"}</small>
-                    </td>
-                    <td>
-                      {owner
-                        ? `${owner.firstName} ${owner.lastName}`
-                        : "Non défini"}
-                      <small>{owner?.email || ""}</small>
-                    </td>
-                    <td>{company._count.members}</td>
-                    <td>
-                      <span className="module-count-badge">
-                        {company.enabledModules.length} actif(s)
-                      </span>
-                    </td>
-                    <td>
-                      {company.accessExpiresAt
-                        ? company.accessExpiresAt.toLocaleDateString("fr-FR")
-                        : "Illimité"}
-                    </td>
-                    <td>
-                      <span
-                        className={`company-status-badge ${
-                          company.status === "ACTIVE" && !expired
-                            ? "active"
-                            : "suspended"
-                        }`}
-                      >
-                        {expired
-                          ? "Expirée"
-                          : company.status === "ACTIVE"
-                            ? "Active"
-                            : "Suspendue"}
-                      </span>
-                    </td>
-                    <td>
-                      <Link href={`/admin/companies/${company.id}`}>
-                        Gérer →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <CompanySelectionTable companies={rows} />
       </section>
     </>
   );

@@ -188,3 +188,99 @@ export async function updateCompanyAccess(formData: FormData) {
   revalidatePath(`/admin/companies/${companyId}`);
   redirect(`/admin/companies/${companyId}?accessSaved=1`);
 }
+
+
+function selectedCompanyIds(formData: FormData): string[] {
+  return Array.from(
+    new Set(
+      formData
+        .getAll("companyIds")
+        .map((value) => String(value).trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+async function protectedCompanyIds(adminUserId: string): Promise<Set<string>> {
+  const memberships = await prisma.companyMember.findMany({
+    where: { userId: adminUserId },
+    select: { companyId: true },
+  });
+
+  return new Set(memberships.map((membership) => membership.companyId));
+}
+
+export async function deleteManagedCompany(formData: FormData) {
+  const admin = await requirePlatformAdmin();
+  const companyId = String(formData.get("companyId") || "").trim();
+  const confirmation = String(formData.get("confirmation") || "");
+
+  if (!companyId || confirmation !== "DELETE") {
+    redirect(`/admin/companies/${companyId}?deleteError=confirmation`);
+  }
+
+  const protectedIds = await protectedCompanyIds(admin.id);
+
+  if (protectedIds.has(companyId)) {
+    redirect(`/admin/companies/${companyId}?deleteError=protected`);
+  }
+
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { id: true, name: true },
+  });
+
+  if (!company) {
+    redirect("/admin?deleteError=not-found");
+  }
+
+  await prisma.company.delete({
+    where: { id: companyId },
+  });
+
+  revalidatePath("/admin");
+  redirect(
+    `/admin?deleted=1&company=${encodeURIComponent(company.name)}`,
+  );
+}
+
+export async function deleteSelectedCompanies(formData: FormData) {
+  const admin = await requirePlatformAdmin();
+  const ids = selectedCompanyIds(formData);
+  const confirmation = String(formData.get("bulkConfirmation") || "");
+
+  if (ids.length === 0) {
+    redirect("/admin?deleteError=selection");
+  }
+
+  if (confirmation !== "DELETE") {
+    redirect("/admin?deleteError=confirmation");
+  }
+
+  const protectedIds = await protectedCompanyIds(admin.id);
+  const deletableIds = ids.filter((id) => !protectedIds.has(id));
+
+  if (deletableIds.length === 0) {
+    redirect("/admin?deleteError=protected");
+  }
+
+  const companies = await prisma.company.findMany({
+    where: { id: { in: deletableIds } },
+    select: { id: true },
+  });
+
+  if (companies.length === 0) {
+    redirect("/admin?deleteError=not-found");
+  }
+
+  await prisma.company.deleteMany({
+    where: { id: { in: companies.map((company) => company.id) } },
+  });
+
+  revalidatePath("/admin");
+
+  const skipped = ids.length - companies.length;
+  redirect(
+    `/admin?bulkDeleted=${companies.length}&skipped=${Math.max(0, skipped)}`,
+  );
+}

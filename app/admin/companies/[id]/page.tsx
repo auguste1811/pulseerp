@@ -8,6 +8,7 @@ import {
 import {
   updateCompanyAccess,
   updateCompanyModules,
+  deleteManagedCompany,
 } from "../../actions";
 
 export default async function ManageCompanyPage({
@@ -19,6 +20,7 @@ export default async function ManageCompanyPage({
     created?: string;
     modulesSaved?: string;
     accessSaved?: string;
+    deleteError?: string;
   }>;
 }) {
   await requirePlatformAdmin();
@@ -166,6 +168,46 @@ export default async function ManageCompanyPage({
             </button>
           </form>
         </article>
+
+        <article className="platform-admin-card platform-delete-company-card">
+          <div className="platform-admin-card-header">
+            <h2>Supprimer l’entreprise</h2>
+            <p>
+              Cette action supprime définitivement l’entreprise et toutes les
+              données qui lui sont rattachées.
+            </p>
+          </div>
+
+          {feedback.deleteError && (
+            <div className="import-alert error">
+              <strong>Suppression impossible.</strong>
+              <span>
+                {feedback.deleteError === "protected"
+                  ? "Cette entreprise est protégée car votre compte développeur y appartient."
+                  : 'Tapez exactement « DELETE » pour confirmer.'}
+              </span>
+            </div>
+          )}
+
+          <form action={deleteManagedCompany} className="premium-form">
+            <input type="hidden" name="companyId" value={company.id} />
+
+            <label>
+              Confirmation
+              <input
+                name="confirmation"
+                placeholder='Tapez DELETE'
+                autoComplete="off"
+                required
+              />
+            </label>
+
+            <button className="danger-action" type="submit">
+              Supprimer définitivement l’entreprise
+            </button>
+          </form>
+        </article>
+
       </section>
     </>
   );

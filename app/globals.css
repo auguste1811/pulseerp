@@ -3811,3 +3811,99 @@ h1, h2, h3, p { margin-top: 0; }
     flex-direction: column;
   }
 }
+
+
+/* PulseERP v3.8.2 — Suppression des entreprises */
+.platform-admin-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eceef3;
+  background: #fafbfc;
+}
+
+.platform-admin-table-toolbar strong,
+.platform-admin-table-toolbar small {
+  display: block;
+}
+
+.platform-admin-table-toolbar small {
+  margin-top: 3px;
+  color: #8a8f9e;
+  font-size: 8px;
+}
+
+.bulk-delete-controls {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bulk-delete-controls input {
+  width: 145px;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #dedfe6;
+  border-radius: 9px;
+  background: #fff;
+  font: inherit;
+  font-size: 9px;
+}
+
+.bulk-delete-controls button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.selection-cell {
+  width: 42px;
+  text-align: center !important;
+}
+
+.selection-cell input {
+  width: 15px;
+  height: 15px;
+  accent-color: #6553df;
+}
+
+.protected-company-label {
+  display: inline-flex;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #76520a;
+  background: #fff5d6;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.platform-delete-company-card {
+  grid-column: 1 / -1;
+  border-color: #efcaca;
+  background: #fffafa;
+}
+
+.platform-delete-company-card .platform-admin-card-header {
+  border-color: #f0d8d8;
+}
+
+.platform-delete-company-card .danger-action {
+  justify-self: start;
+}
+
+@media (max-width: 760px) {
+  .platform-admin-table-toolbar,
+  .bulk-delete-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bulk-delete-controls input,
+  .bulk-delete-controls button {
+    width: 100%;
+  }
+}
