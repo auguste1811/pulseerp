@@ -1,6 +1,6 @@
 {
   "name": "pulseerp",
-  "version": "3.8.2",
+  "version": "3.9.0",
   "private": true,
   "engines": {
     "node": ">=22 <27",
@@ -18,7 +18,11 @@
     "auth:secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64url'))\"",
     "vercel-build": "prisma generate && next build",
     "platform:promote": "tsx scripts/promote-platform-admin.ts",
-    "platform:create-admin": "tsx scripts/create-platform-admin.ts"
+    "platform:create-admin": "tsx scripts/create-platform-admin.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "prisma validate && prisma generate && tsc --noEmit",
+    "verify": "npm run check && next build",
+    "stability:check": "node scripts/stability-check.mjs"
   },
   "dependencies": {
     "bcryptjs": "3.0.2",

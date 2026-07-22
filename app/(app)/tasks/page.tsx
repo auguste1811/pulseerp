@@ -10,7 +10,12 @@ const columns = [
   { value: "DONE", label: "Terminées" },
 ];
 
-export default async function Tasks() {
+export default async function Tasks({
+  searchParams,
+}: {
+  searchParams: Promise<{ created?: string; error?: string }>;
+}) {
+  const feedback = await searchParams;
   const member = await currentContext();
   const [rows, members] = await Promise.all([
     query<any>(
@@ -43,6 +48,24 @@ export default async function Tasks() {
           <Icon name="plus" size={17}/> Nouvelle tâche
         </button>
       </section>
+
+      {feedback.created && (
+        <div className="import-alert success">
+          <strong>Tâche créée.</strong>
+          <span>Elle apparaît dans la colonne sélectionnée.</span>
+        </div>
+      )}
+
+      {feedback.error && (
+        <div className="import-alert error">
+          <strong>Création impossible.</strong>
+          <span>
+            {feedback.error === "assignee"
+              ? "L’utilisateur sélectionné ne fait pas partie de cette entreprise."
+              : "Vérifiez les informations de la tâche."}
+          </span>
+        </div>
+      )}
 
       <article className="dashboard-panel quick-task-panel">
         <form id="task-form" action={createTask} className="quick-task-form">

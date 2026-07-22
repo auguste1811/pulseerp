@@ -164,11 +164,17 @@ export default async function ContactDetails({
                     <option value="Influenceur">Influenceur</option>
                     <option value="Organique">Organique</option>
                     <option value="Site comparatif">Site comparatif</option>
-                    <option value={contact.source ?? ""}>
-                      {contact.source && !["Ads","Clipping","UGC / Affilié","Influenceur","Organique","Site comparatif"].includes(contact.source)
-                        ? contact.source
-                        : "Autre"}
-                    </option>
+                    {contact.source &&
+                      ![
+                        "Ads",
+                        "Clipping",
+                        "UGC / Affilié",
+                        "Influenceur",
+                        "Organique",
+                        "Site comparatif",
+                      ].includes(contact.source) && (
+                        <option value={contact.source}>{contact.source}</option>
+                      )}
                   </select>
                 </label>
               </div>

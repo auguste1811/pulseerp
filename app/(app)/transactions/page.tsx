@@ -48,6 +48,8 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
     </section>
 
     {feedback.imported && <div className="import-alert success"><strong>Facture importée.</strong><span>La dépense et ses écritures ont été créées automatiquement.</span></div>}
+    {feedback.created && <div className="import-alert success"><strong>Opération créée.</strong><span>Elle apparaît dans la comptabilité et le tableau de bord.</span></div>}
+    {feedback.error === "invalid" && <div className="import-alert error"><strong>Création impossible.</strong><span>Vérifiez la date, le montant et les informations saisies.</span></div>}
     {feedback.ocr === "validated" && <div className="import-alert success"><strong>Analyse OCR validée.</strong><span>La facture et les écritures comptables ont été mises à jour.</span></div>}
     {feedback.error && <div className="import-alert error"><strong>Import impossible.</strong><span>Vérifie le fichier et les informations saisies.</span></div>}
 
