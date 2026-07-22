@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CallPanel } from "./call-panel";
+import { formatCallDuration, normalizeFrenchPhone } from "@/lib/phone";
 import { currentContext } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { euro } from "@/lib/format";
@@ -43,7 +45,7 @@ export default async function ContactDetails({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [contacts, notes, activities, nextMeetings] = await Promise.all([
+  const [contacts, notes, activities, nextMeetings, calls] = await Promise.all([
     query<any>(
       `
       SELECT c.*, u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
@@ -88,10 +90,36 @@ export default async function ContactDetails({
       `,
       [id, member.company_id],
     ),
+,
+    query<any>(
+      `
+      SELECT c.*, u.first_name AS creator_first_name, u.last_name AS creator_last_name
+      FROM crm_calls c
+      JOIN users u ON u.id=c.created_by_id
+      WHERE c.contact_id=$1 AND c.company_id=$2
+      ORDER BY c.started_at DESC
+      LIMIT 20
+      `,
+      [id, member.company_id],
+    ),
   ]);
 
   const contact = contacts[0];
   const nextMeeting = nextMeetings[0];
+
+  type CallRow = {
+    id: string;
+    direction: "OUTBOUND" | "INBOUND";
+    status: string;
+    started_at: string | Date;
+    duration_seconds: number;
+    creator_first_name: string;
+    creator_last_name: string;
+    summary: string | null;
+    next_action: string | null;
+  };
+
+  const callRows: CallRow[] = calls ?? [];
   if (!contact) notFound();
 
   return (
@@ -111,7 +139,7 @@ export default async function ContactDetails({
         </div>
       </section>
 
-      {(feedback.saved || feedback.noteAdded || feedback.activityAdded || feedback.meetingCreated) && (
+      {(feedback.saved || feedback.noteAdded || feedback.activityAdded || feedback.meetingCreated || feedback.callSaved) && (
         <div className="import-alert success">
           <strong>Enregistré.</strong>
           <span>Les informations de la fiche client ont été mises à jour.</span>
@@ -210,6 +238,42 @@ export default async function ContactDetails({
             </form>
           </article>
 
+
+
+          <CallPanel
+            contactId={contact.id}
+            phone={normalizeFrenchPhone(contact.phone)}
+            contactName={`${contact.first_name} ${contact.last_name}`}
+          />
+
+          {feedback.callError && (
+            <div className="import-alert error">
+              <strong>Appel non enregistré.</strong>
+              <span>Vérifiez la date, la durée et les informations saisies.</span>
+            </div>
+          )}
+
+          <article className="dashboard-panel crm-call-history">
+            <div className="panel-header">
+              <div><h2>Historique des appels</h2><p>Les 20 derniers appels liés à ce contact.</p></div>
+              <span className="module-count-badge">{callRows.length}</span>
+            </div>
+            <div className="crm-call-history-list">
+              {callRows.map((call: CallRow) => (
+                <article key={call.id}>
+                  <div className="crm-call-history-icon">{call.direction === "OUTBOUND" ? "↗" : "↙"}</div>
+                  <div>
+                    <strong>{call.direction === "OUTBOUND" ? "Appel sortant" : "Appel entrant"}</strong>
+                    <small>{new Date(call.started_at).toLocaleString("fr-FR")} · {formatCallDuration(Number(call.duration_seconds))} · {call.creator_first_name} {call.creator_last_name}</small>
+                    {call.summary && <p>{call.summary}</p>}
+                    {call.next_action && <em>Prochaine action : {call.next_action}</em>}
+                  </div>
+                  <span className={`status-pill ${call.status.toLowerCase()}`}>{call.status}</span>
+                </article>
+              ))}
+              {callRows.length === 0 && <div className="empty-state">Aucun appel enregistré.</div>}
+            </div>
+          </article>
 
           <article className="dashboard-panel contact-next-meeting-card">
             <div className="panel-header">

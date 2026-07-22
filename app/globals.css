@@ -4004,3 +4004,23 @@ h1, h2, h3, p { margin-top: 0; }
     flex-direction: column;
   }
 }
+
+
+/* PulseERP v4.0 — CRM Téléphone */
+.crm-call-panel,.crm-call-history{margin-top:18px}
+.crm-call-timer{display:grid;place-items:center;gap:7px;margin-bottom:20px;padding:18px;border:1px solid #e3e0ff;border-radius:15px;background:linear-gradient(180deg,#f7f5ff,#fbfaff)}
+.crm-call-timer>span{color:#7668c8;font-size:9px;font-weight:850;text-transform:uppercase}
+.crm-call-timer>strong{font-size:34px;letter-spacing:.05em}
+.crm-call-checkbox{display:flex!important;align-items:center;gap:9px!important}
+.crm-call-checkbox input{width:16px!important;height:16px!important;accent-color:#6653e8}
+.crm-call-history-list{display:grid;gap:10px}
+.crm-call-history-list>article{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:start;gap:11px;padding:13px;border:1px solid #e6e8ee;border-radius:12px;background:#fbfcfe}
+.crm-call-history-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;color:#5e4bd3;background:#efecff;font-size:17px;font-weight:900}
+.crm-call-history-list strong,.crm-call-history-list small,.crm-call-history-list p,.crm-call-history-list em{display:block}
+.crm-call-history-list small{margin-top:3px;color:#8c91a0;font-size:8px}
+.crm-call-history-list p{margin:8px 0 0;color:#64697a;font-size:9px;line-height:1.55}
+.crm-call-history-list em{margin-top:7px;color:#6250d1;font-size:8px;font-style:normal;font-weight:800}
+.status-pill.completed{color:#176c4c;background:#eaf8f1}
+.status-pill.no_answer,.status-pill.busy,.status-pill.voicemail{color:#8a5b08;background:#fff5d8}
+.status-pill.failed{color:#9e3d3d;background:#fff0f0}
+@media(max-width:650px){.crm-call-history-list>article{grid-template-columns:36px 1fr}.crm-call-history-list>article>.status-pill{grid-column:2;justify-self:start}}

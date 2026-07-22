@@ -661,3 +661,114 @@ export async function scheduleContactMeeting(formData: FormData) {
   revalidatePath("/dashboard");
   redirect(`/contacts/${contactId}?meetingCreated=1`);
 }
+
+
+const callStatuses = ["COMPLETED","NO_ANSWER","BUSY","VOICEMAIL","FAILED"] as const;
+const callOutcomes = ["QUALIFIED","FOLLOW_UP","MEETING_BOOKED","NOT_INTERESTED","SALE","OTHER"] as const;
+
+export async function logCrmCall(formData: FormData) {
+  const member = await currentContext();
+  const contactId = String(formData.get("contactId") || "").trim();
+
+  const parsed = z.object({
+    direction: z.enum(["OUTBOUND", "INBOUND"]),
+    status: z.enum(callStatuses),
+    outcome: z.union([z.literal(""), z.enum(callOutcomes)]),
+    startedAt: z.string().min(1),
+    durationMinutes: z.coerce.number().int().min(0).max(480),
+    durationSeconds: z.coerce.number().int().min(0).max(59),
+    phoneNumber: z.string().trim().max(40),
+    summary: z.string().trim().max(5000),
+    nextAction: z.string().trim().max(500),
+    followUpAt: z.string().optional(),
+    createFollowUpTask: z.boolean().default(false),
+  }).safeParse({
+    direction: formData.get("direction") || "OUTBOUND",
+    status: formData.get("status") || "COMPLETED",
+    outcome: formData.get("outcome") || "",
+    startedAt: formData.get("startedAt"),
+    durationMinutes: formData.get("durationMinutes") || 0,
+    durationSeconds: formData.get("durationSeconds") || 0,
+    phoneNumber: formData.get("phoneNumber") || "",
+    summary: formData.get("summary") || "",
+    nextAction: formData.get("nextAction") || "",
+    followUpAt: formData.get("followUpAt") || "",
+    createFollowUpTask: formData.get("createFollowUpTask") === "on",
+  });
+
+  if (!contactId || !parsed.success) redirect(`/contacts/${contactId}?callError=invalid`);
+
+  const contact = await query<{id:string;first_name:string;last_name:string;phone:string|null}>(
+    "SELECT id,first_name,last_name,phone FROM contacts WHERE id=$1 AND company_id=$2 LIMIT 1",
+    [contactId, member.company_id],
+  );
+  if (!contact[0]) redirect("/contacts");
+
+  const startedAt = new Date(parsed.data.startedAt);
+  const followUpAt = parsed.data.followUpAt ? new Date(parsed.data.followUpAt) : null;
+  if (Number.isNaN(startedAt.getTime()) || (followUpAt && Number.isNaN(followUpAt.getTime()))) {
+    redirect(`/contacts/${contactId}?callError=date`);
+  }
+
+  const totalSeconds = parsed.data.durationMinutes * 60 + parsed.data.durationSeconds;
+
+  await query(
+    `INSERT INTO crm_calls (
+      id,company_id,contact_id,created_by_id,direction,status,outcome,started_at,
+      duration_seconds,phone_number,summary,next_action,follow_up_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    [
+      randomUUID(), member.company_id, contactId, member.user_id,
+      parsed.data.direction, parsed.data.status, parsed.data.outcome || null,
+      startedAt.toISOString(), totalSeconds,
+      parsed.data.phoneNumber || contact[0].phone || null,
+      parsed.data.summary || null, parsed.data.nextAction || null,
+      followUpAt?.toISOString() || null,
+    ],
+  );
+
+  await query(
+    `INSERT INTO contact_activities (
+      id,company_id,contact_id,actor_id,type,title,description
+    ) VALUES ($1,$2,$3,$4,'CALL',$5,$6)`,
+    [
+      randomUUID(), member.company_id, contactId, member.user_id,
+      parsed.data.direction === "OUTBOUND" ? "Appel sortant enregistré" : "Appel entrant enregistré",
+      parsed.data.summary || `${parsed.data.status} · ${totalSeconds} seconde(s)`,
+    ],
+  );
+
+  if (followUpAt && parsed.data.nextAction) {
+    const endAt = new Date(followUpAt.getTime() + 30 * 60_000);
+    await query(
+      `INSERT INTO calendar_events (
+        id,company_id,contact_id,assigned_user_id,title,description,event_type,status,
+        start_at,end_at,reminder_minutes,created_by
+      ) VALUES ($1,$2,$3,$4,$5,$6,'FOLLOW_UP','PLANNED',$7,$8,30,$9)`,
+      [
+        randomUUID(), member.company_id, contactId, member.user_id,
+        parsed.data.nextAction, parsed.data.summary || null,
+        followUpAt.toISOString(), endAt.toISOString(), member.user_id,
+      ],
+    );
+  }
+
+  if (parsed.data.createFollowUpTask && followUpAt && parsed.data.nextAction) {
+    await query(
+      `INSERT INTO tasks (
+        id,company_id,title,description,status,priority,due_date,assigned_user_id
+      ) VALUES ($1,$2,$3,$4,'TODO','HIGH',$5,$6)`,
+      [
+        randomUUID(), member.company_id, parsed.data.nextAction,
+        `Relance téléphonique de ${contact[0].first_name} ${contact[0].last_name}`,
+        followUpAt.toISOString().slice(0,10), member.user_id,
+      ],
+    );
+  }
+
+  revalidatePath(`/contacts/${contactId}`);
+  revalidatePath("/tasks");
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
+  redirect(`/contacts/${contactId}?callSaved=1`);
+}
