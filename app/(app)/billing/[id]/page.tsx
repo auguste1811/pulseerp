@@ -34,7 +34,7 @@ export default async function BillingDetail({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [documents, items, stripeConnections, emailLogs] = await Promise.all([
+  const [documents, items, stripeConnections] = await Promise.all([
     query<any>(
       `
       SELECT d.*, c.first_name, c.last_name, c.company_name,
@@ -64,7 +64,12 @@ export default async function BillingDetail({
       `,
       [member.company_id],
     ),
-    query<any>(
+  ]);
+
+  let emailLogs: any[] = [];
+
+  try {
+    emailLogs = await query<any>(
       `
       SELECT recipient, subject, status, sent_at, created_at
       FROM sales_document_emails
@@ -73,8 +78,12 @@ export default async function BillingDetail({
       LIMIT 5
       `,
       [id, member.company_id],
-    ),
-  ]);
+    );
+  } catch (error) {
+    // La migration des journaux d'emails peut ne pas encore être appliquée.
+    // Elle ne doit jamais empêcher l'ouverture d'un devis ou d'une facture.
+    console.warn("Historique des emails indisponible", error);
+  }
 
   const document = documents[0];
   if (!document) notFound();
@@ -83,10 +92,20 @@ export default async function BillingDetail({
   const stripeReady = Boolean(
     stripeSettings.accountId && stripeSettings.chargesEnabled,
   );
-  const publicInvoiceUrl =
-    document.document_type === "INVOICE"
-      ? buildPublicInvoiceUrl(document.id, member.company_id)
-      : "";
+  let publicInvoiceUrl = "";
+
+  if (document.document_type === "INVOICE") {
+    try {
+      publicInvoiceUrl = buildPublicInvoiceUrl(
+        document.id,
+        member.company_id,
+      );
+    } catch (error) {
+      // Le partage SMS/WhatsApp reste optionnel. Une variable manquante
+      // ne doit pas rendre la facture inaccessible.
+      console.warn("Lien public de facture indisponible", error);
+    }
+  }
   const clientDisplayName =
     document.company_name ||
     `${document.first_name ?? ""} ${document.last_name ?? ""}`.trim();
@@ -308,15 +327,34 @@ export default async function BillingDetail({
             </article>
           )}
 
-          {document.document_type === "INVOICE" && (
-            <InvoiceMessageShare
-              invoiceNumber={document.document_number}
-              clientName={clientDisplayName}
-              phone={normalizeFrenchPhone(document.phone)}
-              publicUrl={publicInvoiceUrl}
-              issuerName={member.company_name || "PulseERP"}
-            />
-          )}
+          {document.document_type === "INVOICE" &&
+            publicInvoiceUrl && (
+              <InvoiceMessageShare
+                invoiceNumber={document.document_number}
+                clientName={clientDisplayName}
+                phone={normalizeFrenchPhone(document.phone)}
+                publicUrl={publicInvoiceUrl}
+                issuerName={member.company_name || "PulseERP"}
+              />
+            )}
+
+          {document.document_type === "INVOICE" &&
+            !publicInvoiceUrl && (
+              <article className="dashboard-panel invoice-message-card">
+                <div className="panel-header">
+                  <div>
+                    <h2>Envoi par SMS ou WhatsApp</h2>
+                    <p>
+                      Configurez le secret de partage pour activer cette fonction.
+                    </p>
+                  </div>
+                </div>
+                <div className="invoice-email-warning">
+                  Ajoutez <code>INVOICE_SHARE_SECRET</code> dans Vercel,
+                  puis redéployez l’application.
+                </div>
+              </article>
+            )}
 
           <article className="dashboard-panel">
             <div className="panel-header"><div><h2>Statut</h2><p>Mettez à jour le suivi</p></div></div>

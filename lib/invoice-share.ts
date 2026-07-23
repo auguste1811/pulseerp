@@ -52,3 +52,15 @@ export function buildPublicInvoiceUrl(
   const token = createInvoiceShareToken(invoiceId, companyId);
   return `${applicationBaseUrl()}/api/public/invoices/${encodeURIComponent(invoiceId)}/pdf?token=${encodeURIComponent(token)}`;
 }
+
+
+export function tryBuildPublicInvoiceUrl(
+  invoiceId: string,
+  companyId: string,
+) {
+  try {
+    return buildPublicInvoiceUrl(invoiceId, companyId);
+  } catch {
+    return "";
+  }
+}
