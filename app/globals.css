@@ -4510,3 +4510,8 @@ h1, h2, h3, p { margin-top: 0; }
     grid-template-columns: 1fr;
   }
 }
+
+
+/* PulseERP v4.2 — partage email sans API */
+.invoice-share-note { margin: 12px 0 0; color: #858a9a; font-size: 8px; line-height: 1.55; }
+.invoice-email-actions a { text-decoration: none; }

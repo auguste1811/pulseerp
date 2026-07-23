@@ -15,10 +15,7 @@ export async function GET() {
     appUrlConfigured: Boolean(
       process.env.APP_URL || process.env.AUTH_URL,
     ),
-    emailSendingConfigured: Boolean(
-      process.env.RESEND_API_KEY &&
-        (process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL),
-    ),
+    invoiceEmailMode: "MAILTO",
     stripeSecretConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
     stripePricesConfigured: Boolean(
       process.env.STRIPE_PRICE_STARTER &&

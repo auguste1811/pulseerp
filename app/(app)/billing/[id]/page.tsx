@@ -6,12 +6,12 @@ import { euro } from "@/lib/format";
 import { buildPublicInvoiceUrl } from "@/lib/invoice-share";
 import { normalizeFrenchPhone } from "@/lib/phone";
 import { InvoiceMessageShare } from "./invoice-message-share";
+import { InvoiceEmailShare } from "./invoice-email-share";
 import {
   addDocumentItem,
   convertQuoteToInvoice,
   deleteSalesDocument,
-  updateDocumentStatus,
-  sendInvoiceEmail,
+  updateDocumentStatus
 } from "../actions";
 
 const statusLabels: Record<string, string> = {
@@ -66,24 +66,6 @@ export default async function BillingDetail({
     ),
   ]);
 
-  let emailLogs: any[] = [];
-
-  try {
-    emailLogs = await query<any>(
-      `
-      SELECT recipient, subject, status, sent_at, created_at
-      FROM sales_document_emails
-      WHERE document_id=$1 AND company_id=$2
-      ORDER BY created_at DESC
-      LIMIT 5
-      `,
-      [id, member.company_id],
-    );
-  } catch (error) {
-    // La migration des journaux d'emails peut ne pas encore être appliquée.
-    // Elle ne doit jamais empêcher l'ouverture d'un devis ou d'une facture.
-    console.warn("Historique des emails indisponible", error);
-  }
 
   const document = documents[0];
   if (!document) notFound();
@@ -160,25 +142,7 @@ export default async function BillingDetail({
         </div>
       )}
 
-      {feedback.emailSent && (
-        <div className="import-alert success">
-          <strong>Facture envoyée.</strong>
-          <span>Le client a reçu l’email avec la facture PDF en pièce jointe.</span>
-        </div>
-      )}
 
-      {feedback.emailError && (
-        <div className="import-alert error">
-          <strong>Envoi impossible.</strong>
-          <span>
-            {feedback.emailError === "invalid"
-              ? "Vérifiez l’adresse email, l’objet et le message."
-              : feedback.emailError === "invoice"
-                ? "Seules les factures peuvent être envoyées depuis ce formulaire."
-                : "Vérifiez la configuration Resend et réessayez."}
-          </span>
-        </div>
-      )}
 
       <section className="billing-detail-grid">
         <div className="billing-detail-main">
@@ -248,84 +212,31 @@ export default async function BillingDetail({
           )}
 
 
-          {document.document_type === "INVOICE" && (
-            <article className="dashboard-panel invoice-email-card">
-              <div className="panel-header">
-                <div>
-                  <h2>Envoyer par email</h2>
-                  <p>La facture PDF sera automatiquement jointe.</p>
-                </div>
-              </div>
+          {document.document_type === "INVOICE" &&
+            publicInvoiceUrl && (
+              <InvoiceEmailShare
+                invoiceNumber={document.document_number}
+                clientName={clientDisplayName}
+                recipient={document.email || ""}
+                publicUrl={publicInvoiceUrl}
+                issuerName={member.company_name || "PulseERP"}
+              />
+            )}
 
-              {!process.env.RESEND_API_KEY && (
+          {document.document_type === "INVOICE" &&
+            !publicInvoiceUrl && (
+              <article className="dashboard-panel invoice-email-card">
+                <div className="panel-header">
+                  <div>
+                    <h2>Envoyer par email</h2>
+                    <p>Le lien sécurisé doit être configuré avant le partage.</p>
+                  </div>
+                </div>
                 <div className="invoice-email-warning">
-                  Configurez <code>RESEND_API_KEY</code> et <code>EMAIL_FROM</code> dans Vercel.
+                  Ajoutez <code>INVOICE_SHARE_SECRET</code> dans Vercel, puis redéployez.
                 </div>
-              )}
-
-              <form action={sendInvoiceEmail} className="premium-form invoice-email-form">
-                <input type="hidden" name="documentId" value={document.id} />
-                <label>
-                  Destinataire
-                  <input
-                    name="recipient"
-                    type="email"
-                    defaultValue={document.email || ""}
-                    placeholder="client@entreprise.fr"
-                    required
-                  />
-                </label>
-                <label>
-                  Objet
-                  <input
-                    name="subject"
-                    defaultValue={`Facture ${document.document_number} — ${member.company_name || "PulseERP"}`}
-                    required
-                  />
-                </label>
-                <label>
-                  Message
-                  <textarea
-                    name="message"
-                    defaultValue={`Veuillez trouver ci-joint votre facture ${document.document_number}.\n\nNous restons à votre disposition pour toute question.`}
-                    required
-                  />
-                </label>
-                <div className="invoice-email-actions">
-                  <Link
-                    className="secondary-action"
-                    href={`/api/billing/documents/${document.id}/pdf`}
-                    target="_blank"
-                  >
-                    Télécharger le PDF
-                  </Link>
-                  <button
-                    className="primary-action"
-                    type="submit"
-                    disabled={!process.env.RESEND_API_KEY}
-                  >
-                    Envoyer la facture
-                  </button>
-                </div>
-              </form>
-
-              {emailLogs.length > 0 && (
-                <div className="invoice-email-history">
-                  <strong>Derniers envois</strong>
-                  {emailLogs.map((email: any, index: number) => (
-                    <div key={`${email.created_at}-${index}`}>
-                      <span>{email.recipient}</span>
-                      <small>
-                        {email.status === "SENT" ? "Envoyée" : "Échec"}
-                        {" · "}
-                        {new Date(email.sent_at || email.created_at).toLocaleString("fr-FR")}
-                      </small>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </article>
-          )}
+              </article>
+            )}
 
           {document.document_type === "INVOICE" &&
             publicInvoiceUrl && (
