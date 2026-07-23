@@ -4028,3 +4028,328 @@ h1, h2, h3, p { margin-top: 0; }
 /* PulseERP v4.1 — recherche, graphiques, groupes, multi-entreprises */
 .enterprise-company{text-decoration:none}.enterprise-global-search{margin:0}.enterprise-global-search input{min-width:0}.financial-chart{width:100%;overflow:hidden}.financial-chart svg{width:100%;height:auto;display:block}.financial-chart-legend{display:flex;gap:18px;margin:4px 0 8px;color:#74798b;font-size:9px;font-weight:750}.financial-chart-legend span{display:flex;align-items:center;gap:6px}.financial-chart-legend i{width:10px;height:10px;border-radius:99px}.financial-chart-legend i.income{background:#6653e8}.financial-chart-legend i.expense{background:#f59e0b}.financial-grid{stroke:#e9eaf0;stroke-width:1}.financial-axis{fill:#8b90a2;font-size:10px}.financial-line{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.financial-line.income{stroke:#6653e8}.financial-line.expense{stroke:#f59e0b}.financial-point{stroke:#fff;stroke-width:2}.financial-point.income{fill:#6653e8}.financial-point.expense{fill:#f59e0b}.financial-hover-line{stroke:transparent;stroke-width:26}.search-results-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.search-result-list{display:grid}.search-result-list a{display:grid;gap:4px;padding:12px;border-top:1px solid #eef0f4;text-decoration:none}.search-result-list a:first-child{border-top:0}.search-result-list strong{color:#252838;font-size:10px}.search-result-list small{color:#858a9b;font-size:8px}.company-workspace-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:18px}.company-workspace-list{display:grid;gap:10px}.company-workspace-list form{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px;border:1px solid #e5e7ed;border-radius:12px}.company-workspace-list form>div{display:flex;align-items:center;gap:11px}.company-workspace-list form>div>span{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#efecff;color:#604bd4;font-weight:900}.company-workspace-list strong,.company-workspace-list small{display:block}.company-workspace-list small{margin-top:3px;color:#8b90a0;font-size:8px}.contact-group-layout{display:grid;grid-template-columns:320px 1fr;gap:18px}.contact-group-form{display:grid;grid-template-columns:1fr 1fr 48px;gap:8px}.contact-group-form input{height:40px;padding:0 10px;border:1px solid #dfe2ea;border-radius:9px}.contact-group-form button{grid-column:1/-1}.contact-group-list{display:flex;flex-wrap:wrap;gap:8px}.contact-group-list>div{display:flex}.contact-group-list a{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #e1e3ea;border-radius:9px;color:#5f6476;text-decoration:none;font-size:9px;font-weight:800}.contact-group-list a.active{border-color:#7665ee;background:#f5f2ff;color:#5d49d5}.contact-group-list i{width:8px;height:8px;border-radius:99px}.contact-group-list span{color:#8a8f9e}.contact-group-list form button{height:100%;border:0;background:transparent;color:#a0a4b1;cursor:pointer}.csv-import-form select{height:40px;border:1px solid #dfe2ea;border-radius:9px;background:#fff;padding:0 9px}.compact-search input{border:0;background:transparent;outline:0;font-size:9px}.contact-group-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.contact-group-badges span{padding:2px 6px;border:1px solid;border-radius:99px;font-size:7px;font-weight:750}.contact-group-checkboxes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.contact-group-checkboxes label{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid #e4e6ed;border-radius:10px}.contact-group-checkboxes i{width:9px;height:9px;border-radius:99px}.contact-group-checkboxes button{grid-column:1/-1;justify-self:start}
 @media(max-width:900px){.search-results-grid,.company-workspace-grid,.contact-group-layout{grid-template-columns:1fr}.contact-group-checkboxes{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.search-results-grid,.contact-group-checkboxes{grid-template-columns:1fr}.contact-group-form{grid-template-columns:1fr}.contact-group-form button{grid-column:auto}}
+
+
+/* PulseERP v4.1.1 — correction affichage des groupes de contacts */
+.contact-groups-panel {
+  overflow: hidden;
+}
+
+.contact-groups-header {
+  margin-bottom: 0;
+}
+
+.contact-groups-content {
+  display: grid;
+  gap: 22px;
+  padding: 18px 20px 20px;
+}
+
+.contact-group-form {
+  display: grid;
+  grid-template-columns:
+    minmax(190px, 1.1fr)
+    minmax(240px, 1.5fr)
+    72px
+    minmax(150px, auto);
+  align-items: end;
+  gap: 12px;
+  width: 100%;
+}
+
+.contact-group-field {
+  min-width: 0;
+}
+
+.contact-group-field label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 18px;
+  margin-bottom: 7px;
+  color: #555b6e;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.contact-group-field label span {
+  color: #9a9ead;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.contact-group-form .contact-group-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 13px;
+  border: 1px solid #dfe2ea;
+  border-radius: 11px;
+  background: #fff;
+  color: #252839;
+  outline: none;
+  font: inherit;
+}
+
+.contact-group-form .contact-group-field input:focus {
+  border-color: #7564ec;
+  box-shadow: 0 0 0 3px rgba(102, 83, 232, 0.1);
+}
+
+.contact-group-form .contact-group-color-field input[type="color"] {
+  padding: 5px;
+  cursor: pointer;
+}
+
+.contact-group-submit {
+  width: auto;
+  min-width: 150px;
+  height: 44px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.contact-groups-list-section {
+  display: grid;
+  gap: 11px;
+  padding-top: 16px;
+  border-top: 1px solid #eceef3;
+}
+
+.contact-groups-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.contact-groups-list-heading strong {
+  color: #35394a;
+  font-size: 10px;
+}
+
+.contact-groups-list-heading > span {
+  color: #8b90a0;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.contact-group-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+}
+
+.contact-group-list > a,
+.contact-group-chip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+}
+
+.contact-group-list > a,
+.contact-group-chip-wrapper > a {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 0 12px;
+  border: 1px solid #e1e3ea;
+  border-radius: 10px;
+  color: #5f6476;
+  background: #fff;
+  text-decoration: none;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.contact-group-list > a:hover,
+.contact-group-chip-wrapper > a:hover {
+  border-color: #b9b0f6;
+  background: #faf9ff;
+}
+
+.contact-group-list > a.active,
+.contact-group-chip-wrapper > a.active {
+  border-color: #7665ee;
+  color: #5d49d5;
+  background: #f5f2ff;
+  box-shadow: 0 4px 12px rgba(102, 83, 232, 0.09);
+}
+
+.contact-group-list i {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.contact-group-all-dot {
+  background: #6653e8;
+}
+
+.contact-group-label {
+  overflow: hidden;
+  max-width: 180px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.contact-group-count {
+  display: inline-grid;
+  min-width: 22px;
+  min-height: 22px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: #777c8d;
+  background: #f1f2f6;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.contact-group-list a.active .contact-group-count {
+  color: #5d49d5;
+  background: #e8e3ff;
+}
+
+.contact-group-chip-wrapper {
+  padding-right: 28px;
+  border: 1px solid #e1e3ea;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.contact-group-chip-wrapper > a {
+  border: 0;
+  border-radius: 9px 0 0 9px;
+  background: transparent;
+}
+
+.contact-group-chip-wrapper:has(> a.active) {
+  border-color: #7665ee;
+  background: #f5f2ff;
+  box-shadow: 0 4px 12px rgba(102, 83, 232, 0.09);
+}
+
+.contact-group-chip-wrapper > form {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 29px;
+}
+
+.contact-group-chip-wrapper > form button {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid #eceef3;
+  border-radius: 0 9px 9px 0;
+  color: #9a9eac;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.contact-group-chip-wrapper > form button:hover {
+  color: #b63d50;
+  background: #fff0f2;
+}
+
+@media (max-width: 1050px) {
+  .contact-group-form {
+    grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) 68px;
+  }
+
+  .contact-group-submit {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .contact-groups-content {
+    padding: 15px;
+  }
+
+  .contact-group-form {
+    grid-template-columns: 1fr 64px;
+  }
+
+  .contact-group-name-field,
+  .contact-group-description-field {
+    grid-column: 1 / -1;
+  }
+
+  .contact-group-color-field {
+    grid-column: 1;
+  }
+
+  .contact-group-submit {
+    grid-column: 2;
+    min-width: 0;
+    width: 100%;
+    padding-inline: 12px;
+  }
+
+  .contact-groups-list-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .contact-group-form {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-group-name-field,
+  .contact-group-description-field,
+  .contact-group-color-field,
+  .contact-group-submit {
+    grid-column: 1;
+  }
+
+  .contact-group-submit {
+    width: 100%;
+  }
+
+  .contact-group-list {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .contact-group-list > a,
+  .contact-group-chip-wrapper {
+    width: 100%;
+  }
+
+  .contact-group-list > a,
+  .contact-group-chip-wrapper > a {
+    width: 100%;
+  }
+
+  .contact-group-label {
+    max-width: none;
+  }
+}
