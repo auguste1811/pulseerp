@@ -16,6 +16,8 @@ export async function GET() {
       process.env.APP_URL || process.env.AUTH_URL,
     ),
     invoiceEmailMode: "MAILTO",
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     stripeSecretConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
     stripePricesConfigured: Boolean(
       process.env.STRIPE_PRICE_STARTER &&

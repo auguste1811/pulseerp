@@ -12,12 +12,26 @@ export default async function PulseAIPage({
   const member = await currentContext();
   const { conversation } = await searchParams;
 
-  const conversations = await prisma.aiConversation.findMany({
+  const geminiConfigured = Boolean(process.env.GEMINI_API_KEY);
+  const dailyLimit = Math.max(1, Number.parseInt(process.env.GEMINI_DAILY_LIMIT || "50", 10) || 50);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [conversations, usedToday] = await Promise.all([
+    prisma.aiConversation.findMany({
     where: { companyId: member.company_id },
     orderBy: { updatedAt: "desc" },
     take: 8,
     select: { id: true, title: true, updatedAt: true },
-  });
+    }),
+    prisma.aiMessage.count({
+      where: {
+        role: "user",
+        createdAt: { gte: today },
+        conversation: { companyId: member.company_id },
+      },
+    }),
+  ]);
 
   const selected = conversation
     ? await prisma.aiConversation.findFirst({
@@ -52,8 +66,17 @@ export default async function PulseAIPage({
         </nav>
       )}
 
+      {!geminiConfigured && (
+        <div className="import-alert error">
+          <strong>Gemini n’est pas configuré.</strong>
+          <span>Ajoutez GEMINI_API_KEY dans Vercel puis redéployez.</span>
+        </div>
+      )}
+
       <PulseAIClient
         initialConversationId={selected?.id}
+        configured={geminiConfigured}
+        initialUsage={{ usedToday, dailyLimit }}
         initialMessages={(selected?.messages || []).map((item: any) => ({
           role: item.role === "assistant" ? "assistant" : "user",
           content: item.content,

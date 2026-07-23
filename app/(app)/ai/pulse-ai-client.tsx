@@ -8,15 +8,20 @@ type Message = { role: "user" | "assistant"; content: string };
 export function PulseAIClient({
   initialConversationId,
   initialMessages,
+  configured,
+  initialUsage,
 }: {
   initialConversationId?: string;
   initialMessages: Message[];
+  configured: boolean;
+  initialUsage: { usedToday: number; dailyLimit: number };
 }) {
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [messages, setMessages] = useState(initialMessages);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [usage, setUsage] = useState(initialUsage);
 
   const suggestions = [
     "Analyse mon chiffre d’affaires et mes dépenses.",
@@ -27,7 +32,7 @@ export function PulseAIClient({
 
   async function send(value = message) {
     const clean = value.trim();
-    if (!clean || loading) return;
+    if (!clean || loading || !configured) return;
     setError("");
     setMessage("");
     setMessages((current) => [...current, { role: "user", content: clean }]);
@@ -42,6 +47,9 @@ export function PulseAIClient({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Erreur PulseAI");
       setConversationId(data.conversationId);
+      if (data.usage) {
+        setUsage({ usedToday: data.usage.usedToday, dailyLimit: data.usage.dailyLimit });
+      }
       setMessages((current) => [
         ...current,
         { role: "assistant", content: data.answer },
@@ -103,20 +111,21 @@ export function PulseAIClient({
             placeholder="Demandez une analyse, un résumé ou une recommandation…"
             rows={3}
           />
-          <button type="button" disabled={loading || !message.trim()} onClick={() => send()}>
+          <button type="button" disabled={!configured || loading || !message.trim()} onClick={() => send()}>
             Envoyer
           </button>
         </div>
       </section>
 
       <aside className={styles.info}>
-        <h3>Ce que PulseAI peut faire</h3>
+        <h3>PulseAI avec Gemini</h3>
+        <div><strong>Quota du jour</strong><span>{usage.usedToday} / {usage.dailyLimit} demandes utilisées.</span></div>
         <div><strong>Finance</strong><span>Analyser le CA, les dépenses et la TVA.</span></div>
         <div><strong>CRM</strong><span>Identifier les prospects et clients prioritaires.</span></div>
         <div><strong>Facturation</strong><span>Repérer les factures en retard et préparer les relances.</span></div>
         <div><strong>Organisation</strong><span>Résumer les tâches et les échéances importantes.</span></div>
         <p className={styles.privacy}>
-          Les données utiles à votre demande sont transmises au fournisseur IA configuré.
+          Les données utiles à votre demande sont transmises à l’API Gemini configurée pour PulseERP.
         </p>
       </aside>
     </div>
