@@ -3,11 +3,15 @@ import { notFound } from "next/navigation";
 import { currentContext } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { euro } from "@/lib/format";
+import { buildPublicInvoiceUrl } from "@/lib/invoice-share";
+import { normalizeFrenchPhone } from "@/lib/phone";
+import { InvoiceMessageShare } from "./invoice-message-share";
 import {
   addDocumentItem,
   convertQuoteToInvoice,
   deleteSalesDocument,
   updateDocumentStatus,
+  sendInvoiceEmail,
 } from "../actions";
 
 const statusLabels: Record<string, string> = {
@@ -30,7 +34,7 @@ export default async function BillingDetail({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [documents, items, stripeConnections] = await Promise.all([
+  const [documents, items, stripeConnections, emailLogs] = await Promise.all([
     query<any>(
       `
       SELECT d.*, c.first_name, c.last_name, c.company_name,
@@ -60,6 +64,16 @@ export default async function BillingDetail({
       `,
       [member.company_id],
     ),
+    query<any>(
+      `
+      SELECT recipient, subject, status, sent_at, created_at
+      FROM sales_document_emails
+      WHERE document_id=$1 AND company_id=$2
+      ORDER BY created_at DESC
+      LIMIT 5
+      `,
+      [id, member.company_id],
+    ),
   ]);
 
   const document = documents[0];
@@ -69,6 +83,13 @@ export default async function BillingDetail({
   const stripeReady = Boolean(
     stripeSettings.accountId && stripeSettings.chargesEnabled,
   );
+  const publicInvoiceUrl =
+    document.document_type === "INVOICE"
+      ? buildPublicInvoiceUrl(document.id, member.company_id)
+      : "";
+  const clientDisplayName =
+    document.company_name ||
+    `${document.first_name ?? ""} ${document.last_name ?? ""}`.trim();
 
   return (
     <>
@@ -117,6 +138,26 @@ export default async function BillingDetail({
         <div className="import-alert error">
           <strong>Paiement non finalisé.</strong>
           <span>Le paiement a été annulé ou Stripe n’est pas encore disponible.</span>
+        </div>
+      )}
+
+      {feedback.emailSent && (
+        <div className="import-alert success">
+          <strong>Facture envoyée.</strong>
+          <span>Le client a reçu l’email avec la facture PDF en pièce jointe.</span>
+        </div>
+      )}
+
+      {feedback.emailError && (
+        <div className="import-alert error">
+          <strong>Envoi impossible.</strong>
+          <span>
+            {feedback.emailError === "invalid"
+              ? "Vérifiez l’adresse email, l’objet et le message."
+              : feedback.emailError === "invoice"
+                ? "Seules les factures peuvent être envoyées depuis ce formulaire."
+                : "Vérifiez la configuration Resend et réessayez."}
+          </span>
         </div>
       )}
 
@@ -185,6 +226,96 @@ export default async function BillingDetail({
                 Bientôt disponible
               </button>
             </article>
+          )}
+
+
+          {document.document_type === "INVOICE" && (
+            <article className="dashboard-panel invoice-email-card">
+              <div className="panel-header">
+                <div>
+                  <h2>Envoyer par email</h2>
+                  <p>La facture PDF sera automatiquement jointe.</p>
+                </div>
+              </div>
+
+              {!process.env.RESEND_API_KEY && (
+                <div className="invoice-email-warning">
+                  Configurez <code>RESEND_API_KEY</code> et <code>EMAIL_FROM</code> dans Vercel.
+                </div>
+              )}
+
+              <form action={sendInvoiceEmail} className="premium-form invoice-email-form">
+                <input type="hidden" name="documentId" value={document.id} />
+                <label>
+                  Destinataire
+                  <input
+                    name="recipient"
+                    type="email"
+                    defaultValue={document.email || ""}
+                    placeholder="client@entreprise.fr"
+                    required
+                  />
+                </label>
+                <label>
+                  Objet
+                  <input
+                    name="subject"
+                    defaultValue={`Facture ${document.document_number} — ${member.company_name || "PulseERP"}`}
+                    required
+                  />
+                </label>
+                <label>
+                  Message
+                  <textarea
+                    name="message"
+                    defaultValue={`Veuillez trouver ci-joint votre facture ${document.document_number}.\n\nNous restons à votre disposition pour toute question.`}
+                    required
+                  />
+                </label>
+                <div className="invoice-email-actions">
+                  <Link
+                    className="secondary-action"
+                    href={`/api/billing/documents/${document.id}/pdf`}
+                    target="_blank"
+                  >
+                    Télécharger le PDF
+                  </Link>
+                  <button
+                    className="primary-action"
+                    type="submit"
+                    disabled={!process.env.RESEND_API_KEY}
+                  >
+                    Envoyer la facture
+                  </button>
+                </div>
+              </form>
+
+              {emailLogs.length > 0 && (
+                <div className="invoice-email-history">
+                  <strong>Derniers envois</strong>
+                  {emailLogs.map((email: any, index: number) => (
+                    <div key={`${email.created_at}-${index}`}>
+                      <span>{email.recipient}</span>
+                      <small>
+                        {email.status === "SENT" ? "Envoyée" : "Échec"}
+                        {" · "}
+                        {new Date(email.sent_at || email.created_at).toLocaleString("fr-FR")}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          )}
+
+          {document.document_type === "INVOICE" && (
+            <InvoiceMessageShare
+              invoiceNumber={document.document_number}
+              clientName={clientDisplayName}
+              phone={normalizeFrenchPhone(document.phone)}
+              publicUrl={publicInvoiceUrl}
+              issuerName={member.company_name || "PulseERP"}
+            />
           )}
 
           <article className="dashboard-panel">

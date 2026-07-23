@@ -8,6 +8,12 @@ import type { PoolClient } from "pg";
 import { currentContext } from "@/lib/auth";
 import { emitAutomationEvent } from "@/lib/automation-engine";
 import { pool, query } from "@/lib/db";
+import {
+  buildInvoiceEmailHtml,
+  buildInvoicePdf,
+  loadInvoiceEmailData,
+  sendResendEmail,
+} from "@/lib/invoice-email";
 
 const documentTypes = ["QUOTE", "INVOICE"] as const;
 const documentStatuses = [
@@ -578,4 +584,136 @@ export async function deleteSalesDocument(formData: FormData) {
 
   revalidatePath("/billing");
   redirect("/billing?deleted=1");
+}
+
+
+const sendInvoiceEmailSchema = z.object({
+  documentId: z.string().trim().min(1),
+  recipient: z.string().trim().toLowerCase().email(),
+  subject: z.string().trim().min(3).max(200),
+  message: z.string().trim().min(3).max(5000),
+});
+
+export async function sendInvoiceEmail(formData: FormData) {
+  const member = await currentContext();
+
+  const parsed = sendInvoiceEmailSchema.safeParse({
+    documentId: formData.get("documentId"),
+    recipient: formData.get("recipient"),
+    subject: formData.get("subject"),
+    message: formData.get("message"),
+  });
+
+  const fallbackId = String(formData.get("documentId") || "");
+  if (!parsed.success) {
+    redirect(`/billing/${fallbackId}?emailError=invalid`);
+  }
+
+  const invoice = await loadInvoiceEmailData(
+    parsed.data.documentId,
+    member.company_id,
+  );
+
+  if (!invoice || invoice.documentType !== "INVOICE") {
+    redirect(`/billing/${parsed.data.documentId}?emailError=invoice`);
+  }
+
+  const emailLogId = randomUUID();
+  const sender =
+    process.env.EMAIL_FROM ||
+    process.env.RESEND_FROM_EMAIL ||
+    "PulseERP <onboarding@resend.dev>";
+
+  try {
+    const pdf = buildInvoicePdf(invoice);
+    const html = buildInvoiceEmailHtml(invoice, parsed.data.message);
+    const filename = `facture-${invoice.documentNumber.replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`;
+
+    const result = await sendResendEmail({
+      to: parsed.data.recipient,
+      from: sender,
+      replyTo: invoice.issuer.email,
+      subject: parsed.data.subject,
+      html,
+      filename,
+      pdf,
+    });
+
+    await query(
+      `
+      INSERT INTO sales_document_emails (
+        id, company_id, document_id, recipient, subject,
+        status, provider_id, sent_by, sent_at
+      )
+      VALUES ($1,$2,$3,$4,$5,'SENT',$6,$7,NOW())
+      `,
+      [
+        emailLogId,
+        member.company_id,
+        invoice.id,
+        parsed.data.recipient,
+        parsed.data.subject,
+        result.id,
+        member.user_id,
+      ],
+    );
+
+    await query(
+      `
+      UPDATE sales_documents
+      SET status = CASE WHEN status='DRAFT' THEN 'SENT' ELSE status END,
+          updated_at = NOW()
+      WHERE id=$1 AND company_id=$2
+      `,
+      [invoice.id, member.company_id],
+    );
+
+    if (invoice.client.email) {
+      await query(
+        `
+        INSERT INTO contact_activities (
+          id, company_id, contact_id, actor_id, type, title, description
+        )
+        SELECT $1,$2,contact_id,$3,'EMAIL','Facture envoyée par email',$4
+        FROM sales_documents
+        WHERE id=$5 AND company_id=$2 AND contact_id IS NOT NULL
+        `,
+        [
+          randomUUID(),
+          member.company_id,
+          member.user_id,
+          `Facture ${invoice.documentNumber} envoyée à ${parsed.data.recipient}`,
+          invoice.id,
+        ],
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : "Erreur inconnue";
+    console.error("Invoice email send failed", error);
+
+    await query(
+      `
+      INSERT INTO sales_document_emails (
+        id, company_id, document_id, recipient, subject,
+        status, error_message, sent_by
+      )
+      VALUES ($1,$2,$3,$4,$5,'FAILED',$6,$7)
+      `,
+      [
+        emailLogId,
+        member.company_id,
+        invoice.id,
+        parsed.data.recipient,
+        parsed.data.subject,
+        message,
+        member.user_id,
+      ],
+    ).catch(() => undefined);
+
+    redirect(`/billing/${invoice.id}?emailError=send`);
+  }
+
+  revalidatePath(`/billing/${invoice.id}`);
+  revalidatePath("/billing");
+  redirect(`/billing/${invoice.id}?emailSent=1`);
 }
