@@ -8,42 +8,43 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  name            String?
-  image           String?
-  firstName       String    @default("") @map("first_name")
-  lastName        String    @default("") @map("last_name")
-  email           String    @unique
-  emailVerified   DateTime? @map("email_verified_at") @db.Timestamptz(6)
-  passwordHash    String    @default("") @map("password_hash")
-  googleId        String?   @unique @map("google_id")
-  isActive        Boolean   @default(true) @map("is_active")
-  isPlatformAdmin Boolean   @default(false) @map("is_platform_admin")
-  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id            String    @id @default(cuid())
+  name          String?
+  image         String?
+  firstName     String    @default("") @map("first_name")
+  lastName      String    @default("") @map("last_name")
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  passwordHash  String    @default("") @map("password_hash")
+  googleId      String?   @unique @map("google_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  isPlatformAdmin Boolean @default(false) @map("is_platform_admin")
+  lastLoginAt   DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  memberships                CompanyMember[]
-  assignedContacts           Contact[]               @relation("ContactAssignee")
-  notes                      ContactNote[]
-  activities                 ContactActivity[]
-  assignedTasks              Task[]                  @relation("TaskAssignee")
-  createdEvents              CalendarEvent[]         @relation("EventCreator")
-  assignedEvents             CalendarEvent[]         @relation("EventAssignee")
-  createdDocuments           SalesDocument[]         @relation("SalesDocumentCreator")
-  uploadedDocuments          Document[]
-  invitations                Invitation[]
-  integrations               IntegrationConnection[]
-  automations                Automation[]
-  notifications              Notification[]
-  accounts                   Account[]
-  sessions                   Session[]
-  uploadedPurchaseInvoices   PurchaseInvoice[]
-  aiConversations            AiConversation[]
-  managedAcquisitionChannels AcquisitionChannel[]    @relation("AcquisitionManager")
-  crmCallsCreated            CrmCall[]               @relation("CrmCallCreator")
+  memberships        CompanyMember[]
+  assignedContacts   Contact[]              @relation("ContactAssignee")
+  notes              ContactNote[]
+  activities         ContactActivity[]
+  assignedTasks      Task[]                 @relation("TaskAssignee")
+  createdEvents      CalendarEvent[]        @relation("EventCreator")
+  assignedEvents     CalendarEvent[]        @relation("EventAssignee")
+  createdDocuments   SalesDocument[]        @relation("SalesDocumentCreator")
+  uploadedDocuments  Document[]
+  invitations        Invitation[]
+  integrations       IntegrationConnection[]
+  automations        Automation[]
+  notifications      Notification[]
+  accounts           Account[]
+  sessions           Session[]
+  uploadedPurchaseInvoices PurchaseInvoice[]
+  aiConversations          AiConversation[]
+  managedAcquisitionChannels AcquisitionChannel[] @relation("AcquisitionManager")
+  crmCallsCreated            CrmCall[] @relation("CrmCallCreator")
 
   @@map("users")
 }
+
 
 model Account {
   id                String  @id @default(cuid())
@@ -51,12 +52,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String  @map("provider_account_id")
-  refreshToken      String? @map("refresh_token") @db.Text
-  accessToken       String? @map("access_token") @db.Text
+  refreshToken      String? @db.Text @map("refresh_token")
+  accessToken       String? @db.Text @map("access_token")
   expiresAt         Int?    @map("expires_at")
   tokenType         String? @map("token_type")
   scope             String?
-  idToken           String? @map("id_token") @db.Text
+  idToken           String? @db.Text @map("id_token")
   sessionState      String? @map("session_state")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -99,54 +100,55 @@ model PasswordResetToken {
 }
 
 model Company {
-  id                String    @id
+  id                String   @id
   name              String
-  legalName         String?   @map("legal_name")
+  legalName         String?  @map("legal_name")
   address           String?
-  postalCode        String?   @map("postal_code")
+  postalCode        String?  @map("postal_code")
   city              String?
-  country           String    @default("France")
+  country           String   @default("France")
   email             String?
   phone             String?
   website           String?
   siret             String?
-  vatNumber         String?   @map("vat_number")
+  vatNumber         String?  @map("vat_number")
   iban              String?
   bic               String?
-  currency          String    @default("EUR")
-  defaultVatRate    Decimal   @default(20) @map("default_vat_rate")
-  invoiceFooter     String?   @map("invoice_footer")
-  paymentTermsDays  Int       @default(30) @map("payment_terms_days")
-  quoteValidityDays Int       @default(30) @map("quote_validity_days")
-  quotePrefix       String    @default("DEV") @map("quote_prefix")
-  invoicePrefix     String    @default("FAC") @map("invoice_prefix")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  status            String    @default("ACTIVE")
+  currency          String   @default("EUR")
+  defaultVatRate    Decimal  @default(20) @map("default_vat_rate")
+  invoiceFooter     String?  @map("invoice_footer")
+  paymentTermsDays  Int      @default(30) @map("payment_terms_days")
+  quoteValidityDays Int      @default(30) @map("quote_validity_days")
+  quotePrefix       String   @default("DEV") @map("quote_prefix")
+  invoicePrefix     String   @default("FAC") @map("invoice_prefix")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  status            String   @default("ACTIVE")
   accessExpiresAt   DateTime? @map("access_expires_at") @db.Timestamptz(6)
 
-  members             CompanyMember[]
-  contacts            Contact[]
-  contactNotes        ContactNote[]
-  contactActivities   ContactActivity[]
-  transactions        Transaction[]
-  tasks               Task[]
-  calendarEvents      CalendarEvent[]
-  salesDocuments      SalesDocument[]
-  documentSequences   DocumentSequence[]
-  invitations         Invitation[]
-  documents           Document[]
-  integrations        IntegrationConnection[]
-  automations         Automation[]
-  automationRuns      AutomationRun[]
-  notifications       Notification[]
+  members            CompanyMember[]
+  contacts           Contact[]
+  contactNotes       ContactNote[]
+  contactActivities  ContactActivity[]
+  transactions       Transaction[]
+  tasks              Task[]
+  calendarEvents     CalendarEvent[]
+  salesDocuments     SalesDocument[]
+  documentSequences  DocumentSequence[]
+  invitations        Invitation[]
+  documents          Document[]
+  integrations       IntegrationConnection[]
+  automations        Automation[]
+  automationRuns     AutomationRun[]
+  notifications      Notification[]
   purchaseInvoices    PurchaseInvoice[]
   accountingEntries   AccountingEntry[]
   aiConversations     AiConversation[]
   subscription        Subscription?
   enabledModules      CompanyModule[]
   acquisitionChannels AcquisitionChannel[]
-  crmCalls            CrmCall[]
+  crmCalls             CrmCall[]
+  contactGroups        ContactGroup[]
 
   @@map("companies")
 }
@@ -182,18 +184,21 @@ model Contact {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
 
-  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  assignedUser User?             @relation("ContactAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
-  notes        ContactNote[]
-  activities   ContactActivity[]
-  events       CalendarEvent[]
-  salesDocs    SalesDocument[]
-  documents    Document[]
-  calls        CrmCall[]
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedUser  User?             @relation("ContactAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  notes         ContactNote[]
+  activities    ContactActivity[]
+  events        CalendarEvent[]
+  salesDocs     SalesDocument[]
+  documents     Document[]
+
+  calls             CrmCall[]
+  groupMemberships  ContactGroupMember[]
 
   @@index([companyId, status], map: "contacts_company_status_idx")
   @@map("contacts")
 }
+
 
 model ContactNote {
   id        String   @id
@@ -228,41 +233,41 @@ model ContactActivity {
 }
 
 model Transaction {
-  id                 String           @id
-  companyId          String           @map("company_id")
+  id                 String   @id
+  companyId          String   @map("company_id")
   type               String
-  status             String           @default("PENDING")
-  date               DateTime         @db.Date
+  status             String   @default("PENDING")
+  date               DateTime @db.Date
   label              String
   category           String?
-  amountExcludingTax Decimal          @map("amount_excluding_tax")
-  vatRate            Decimal          @map("vat_rate")
-  vatAmount          Decimal          @map("vat_amount")
-  amountIncludingTax Decimal          @map("amount_including_tax")
-  revenueSource      String?          @map("revenue_source")
-  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  salesDocumentId    String?          @unique @map("sales_document_id")
-  purchaseInvoiceId  String?          @unique @map("purchase_invoice_id")
-  company            Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  salesDocument      SalesDocument?   @relation(fields: [salesDocumentId], references: [id], onDelete: SetNull)
+  amountExcludingTax Decimal  @map("amount_excluding_tax")
+  vatRate            Decimal  @map("vat_rate")
+  vatAmount          Decimal  @map("vat_amount")
+  amountIncludingTax Decimal  @map("amount_including_tax")
+  revenueSource      String?  @map("revenue_source")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  salesDocumentId    String?  @unique @map("sales_document_id")
+  purchaseInvoiceId  String?  @unique @map("purchase_invoice_id")
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  salesDocument      SalesDocument? @relation(fields: [salesDocumentId], references: [id], onDelete: SetNull)
   purchaseInvoice    PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id], onDelete: SetNull)
 
   @@map("transactions")
 }
 
 model Task {
-  id             String    @id
-  companyId      String    @map("company_id")
+  id             String   @id
+  companyId      String   @map("company_id")
   title          String
   description    String?
-  status         String    @default("TODO")
-  priority       String    @default("MEDIUM")
+  status         String   @default("TODO")
+  priority       String   @default("MEDIUM")
   dueDate        DateTime? @map("due_date") @db.Date
-  assignedUserId String?   @map("assigned_user_id")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  assignedUser   User?     @relation("TaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  assignedUserId String?  @map("assigned_user_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedUser   User?    @relation("TaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
 
   @@index([companyId, assignedUserId, status], map: "tasks_company_assignee_idx")
   @@map("tasks")
@@ -293,37 +298,37 @@ model CalendarEvent {
   assignedUser      User?     @relation("EventAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
   creator           User?     @relation("EventCreator", fields: [createdBy], references: [id], onDelete: SetNull)
 
-  @@unique([companyId, externalProvider, externalId], map: "calendar_events_external_unique_idx")
   @@index([companyId, startAt], map: "calendar_events_company_start_idx")
   @@index([companyId, contactId], map: "calendar_events_contact_idx")
+  @@unique([companyId, externalProvider, externalId], map: "calendar_events_external_unique_idx")
   @@map("calendar_events")
 }
 
 model SalesDocument {
-  id                    String              @id
-  companyId             String              @map("company_id")
-  contactId             String?             @map("contact_id")
-  documentType          String              @map("document_type")
-  documentNumber        String              @map("document_number")
-  status                String              @default("DRAFT")
-  issueDate             DateTime            @default(now()) @map("issue_date") @db.Date
-  dueDate               DateTime?           @map("due_date") @db.Date
-  validUntil            DateTime?           @map("valid_until") @db.Date
-  currency              String              @default("EUR")
-  notes                 String?
-  subtotal              Decimal             @default(0)
-  vatAmount             Decimal             @default(0) @map("vat_amount")
-  total                 Decimal             @default(0)
-  sourceQuoteId         String?             @map("source_quote_id")
-  createdBy             String?             @map("created_by")
-  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime            @default(now()) @map("updated_at") @db.Timestamptz(6)
-  company               Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contact               Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  creator               User?               @relation("SalesDocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  sourceQuote           SalesDocument?      @relation("QuoteConversion", fields: [sourceQuoteId], references: [id], onDelete: SetNull)
-  derivedDocs           SalesDocument[]     @relation("QuoteConversion")
-  items                 SalesDocumentItem[]
+  id            String   @id
+  companyId     String   @map("company_id")
+  contactId     String?  @map("contact_id")
+  documentType  String   @map("document_type")
+  documentNumber String  @map("document_number")
+  status        String   @default("DRAFT")
+  issueDate     DateTime @default(now()) @map("issue_date") @db.Date
+  dueDate       DateTime? @map("due_date") @db.Date
+  validUntil    DateTime? @map("valid_until") @db.Date
+  currency      String   @default("EUR")
+  notes         String?
+  subtotal      Decimal  @default(0)
+  vatAmount     Decimal  @default(0) @map("vat_amount")
+  total         Decimal  @default(0)
+  sourceQuoteId String?  @map("source_quote_id")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  creator       User?    @relation("SalesDocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  sourceQuote   SalesDocument? @relation("QuoteConversion", fields: [sourceQuoteId], references: [id], onDelete: SetNull)
+  derivedDocs   SalesDocument[] @relation("QuoteConversion")
+  items         SalesDocumentItem[]
   accountingTransaction Transaction?
 
   @@unique([companyId, documentNumber])
@@ -333,16 +338,16 @@ model SalesDocument {
 }
 
 model SalesDocumentItem {
-  id           String        @id
-  documentId   String        @map("document_id")
+  id           String   @id
+  documentId   String   @map("document_id")
   description  String
-  quantity     Decimal       @default(1)
-  unitPrice    Decimal       @default(0) @map("unit_price")
-  vatRate      Decimal       @default(20) @map("vat_rate")
-  lineSubtotal Decimal       @default(0) @map("line_subtotal")
-  lineVat      Decimal       @default(0) @map("line_vat")
-  lineTotal    Decimal       @default(0) @map("line_total")
-  position     Int           @default(0)
+  quantity     Decimal  @default(1)
+  unitPrice    Decimal  @default(0) @map("unit_price")
+  vatRate      Decimal  @default(20) @map("vat_rate")
+  lineSubtotal Decimal  @default(0) @map("line_subtotal")
+  lineVat      Decimal  @default(0) @map("line_vat")
+  lineTotal    Decimal  @default(0) @map("line_total")
+  position     Int      @default(0)
   document     SalesDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId, position], map: "sales_document_items_document_idx")
@@ -350,11 +355,11 @@ model SalesDocumentItem {
 }
 
 model DocumentSequence {
-  companyId    String  @map("company_id")
-  documentType String  @map("document_type")
-  year         Int
-  currentValue Int     @default(0) @map("current_value")
-  company      Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String  @map("company_id")
+  documentType String @map("document_type")
+  year        Int
+  currentValue Int    @default(0) @map("current_value")
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@id([companyId, documentType, year])
   @@map("document_sequences")
@@ -422,38 +427,38 @@ model IntegrationConnection {
 }
 
 model Automation {
-  id            String          @id
-  companyId     String          @map("company_id")
+  id            String   @id
+  companyId     String   @map("company_id")
   name          String
   description   String?
-  triggerType   String          @map("trigger_type")
-  triggerConfig Json            @default("{}") @map("trigger_config")
-  conditions    Json            @default("[]")
-  actions       Json            @default("[]")
-  isActive      Boolean         @default(false) @map("is_active")
-  createdBy     String?         @map("created_by")
-  lastRunAt     DateTime?       @map("last_run_at") @db.Timestamptz(6)
-  lastRunStatus String?         @map("last_run_status")
-  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
-  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  creator       User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  triggerType   String   @map("trigger_type")
+  triggerConfig Json     @default("{}") @map("trigger_config")
+  conditions    Json     @default("[]")
+  actions       Json     @default("[]")
+  isActive      Boolean  @default(false) @map("is_active")
+  createdBy     String?  @map("created_by")
+  lastRunAt     DateTime? @map("last_run_at") @db.Timestamptz(6)
+  lastRunStatus String?  @map("last_run_status")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  creator       User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   runs          AutomationRun[]
 
   @@map("automations")
 }
 
 model AutomationRun {
-  id             String     @id
-  companyId      String     @map("company_id")
-  automationId   String     @map("automation_id")
-  triggerPayload Json       @default("{}") @map("trigger_payload")
-  status         String     @default("RUNNING")
-  logs           Json       @default("[]")
-  errorMessage   String?    @map("error_message")
-  startedAt      DateTime   @default(now()) @map("started_at") @db.Timestamptz(6)
-  finishedAt     DateTime?  @map("finished_at") @db.Timestamptz(6)
-  company        Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id             String    @id
+  companyId      String    @map("company_id")
+  automationId   String    @map("automation_id")
+  triggerPayload Json      @default("{}") @map("trigger_payload")
+  status         String    @default("RUNNING")
+  logs           Json      @default("[]")
+  errorMessage   String?   @map("error_message")
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz(6)
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   automation     Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
 
   @@map("automation_runs")
@@ -474,36 +479,37 @@ model Notification {
   @@map("notifications")
 }
 
-model PurchaseInvoice {
-  id            String    @id @default(cuid())
-  companyId     String    @map("company_id")
-  uploadedBy    String?   @map("uploaded_by")
-  supplierName  String    @map("supplier_name")
-  invoiceNumber String?   @map("invoice_number")
-  issueDate     DateTime  @map("issue_date") @db.Date
-  dueDate       DateTime? @map("due_date") @db.Date
-  category      String    @default("TO_CLASSIFY")
-  status        String    @default("PENDING")
-  subtotal      Decimal   @default(0)
-  vatAmount     Decimal   @default(0) @map("vat_amount")
-  total         Decimal   @default(0)
-  notes         String?
-  originalName  String    @map("original_name")
-  mimeType      String    @map("mime_type")
-  sizeBytes     Int       @map("size_bytes")
-  fileData      Bytes     @map("file_data")
-  ocrStatus     String    @default("NOT_ANALYZED") @map("ocr_status")
-  ocrConfidence Decimal?  @map("ocr_confidence")
-  ocrData       Json?     @map("ocr_data")
-  ocrError      String?   @map("ocr_error")
-  ocrAnalyzedAt DateTime? @map("ocr_analyzed_at") @db.Timestamptz(6)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  uploader    User?             @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
-  transaction Transaction?
-  entries     AccountingEntry[]
+model PurchaseInvoice {
+  id            String   @id @default(cuid())
+  companyId     String   @map("company_id")
+  uploadedBy    String?  @map("uploaded_by")
+  supplierName  String   @map("supplier_name")
+  invoiceNumber String?  @map("invoice_number")
+  issueDate     DateTime @map("issue_date") @db.Date
+  dueDate       DateTime? @map("due_date") @db.Date
+  category      String   @default("TO_CLASSIFY")
+  status        String   @default("PENDING")
+  subtotal      Decimal  @default(0)
+  vatAmount     Decimal  @default(0) @map("vat_amount")
+  total         Decimal  @default(0)
+  notes         String?
+  originalName  String   @map("original_name")
+  mimeType      String   @map("mime_type")
+  sizeBytes     Int      @map("size_bytes")
+  fileData      Bytes    @map("file_data")
+  ocrStatus     String   @default("NOT_ANALYZED") @map("ocr_status")
+  ocrConfidence Decimal? @map("ocr_confidence")
+  ocrData       Json?    @map("ocr_data")
+  ocrError      String?  @map("ocr_error")
+  ocrAnalyzedAt DateTime? @map("ocr_analyzed_at") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploader      User?    @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+  transaction   Transaction?
+  entries       AccountingEntry[]
 
   @@index([companyId, issueDate(sort: Desc)])
   @@index([companyId, category, status])
@@ -522,13 +528,14 @@ model AccountingEntry {
   credit            Decimal  @default(0)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   purchaseInvoice PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
 
   @@index([companyId, entryDate(sort: Desc)])
   @@index([purchaseInvoiceId])
   @@map("accounting_entries")
 }
+
 
 model AiConversation {
   id        String   @id @default(cuid())
@@ -560,26 +567,28 @@ model AiMessage {
   @@map("ai_messages")
 }
 
+
 model Subscription {
-  id                   String    @id @default(cuid())
-  companyId            String    @unique @map("company_id")
-  plan                 String    @default("TRIAL")
-  status               String    @default("TRIALING")
-  trialStartsAt        DateTime  @default(now()) @map("trial_starts_at") @db.Timestamptz(6)
-  trialEndsAt          DateTime  @map("trial_ends_at") @db.Timestamptz(6)
-  stripeCustomerId     String?   @unique @map("stripe_customer_id")
-  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
-  stripePriceId        String?   @map("stripe_price_id")
+  id                   String   @id @default(cuid())
+  companyId            String   @unique @map("company_id")
+  plan                 String   @default("TRIAL")
+  status               String   @default("TRIALING")
+  trialStartsAt        DateTime @default(now()) @map("trial_starts_at") @db.Timestamptz(6)
+  trialEndsAt          DateTime @map("trial_ends_at") @db.Timestamptz(6)
+  stripeCustomerId     String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  stripePriceId        String?  @map("stripe_price_id")
   currentPeriodEnd     DateTime? @map("current_period_end") @db.Timestamptz(6)
-  cancelAtPeriodEnd    Boolean   @default(false) @map("cancel_at_period_end")
-  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  cancelAtPeriodEnd    Boolean  @default(false) @map("cancel_at_period_end")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([status, trialEndsAt])
   @@map("subscriptions")
 }
+
 
 model AppModule {
   id          String   @id @default(cuid())
@@ -615,6 +624,7 @@ model CompanyModule {
   @@map("company_modules")
 }
 
+
 model AcquisitionChannel {
   id            String   @id @default(cuid())
   companyId     String   @map("company_id")
@@ -625,8 +635,8 @@ model AcquisitionChannel {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  manager User?               @relation("AcquisitionManager", fields: [managerUserId], references: [id], onDelete: SetNull)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  manager User?   @relation("AcquisitionManager", fields: [managerUserId], references: [id], onDelete: SetNull)
   metrics AcquisitionMetric[]
 
   @@unique([companyId, code])
@@ -651,22 +661,23 @@ model AcquisitionMetric {
   @@map("acquisition_metrics")
 }
 
+
 model CrmCall {
-  id              String    @id @default(cuid())
-  companyId       String    @map("company_id")
-  contactId       String    @map("contact_id")
-  createdById     String    @map("created_by_id")
-  direction       String    @default("OUTBOUND")
+  id              String   @id @default(cuid())
+  companyId       String   @map("company_id")
+  contactId       String   @map("contact_id")
+  createdById     String   @map("created_by_id")
+  direction       String   @default("OUTBOUND")
   status          String
   outcome         String?
-  startedAt       DateTime  @map("started_at") @db.Timestamptz(6)
-  durationSeconds Int       @default(0) @map("duration_seconds")
-  phoneNumber     String?   @map("phone_number")
+  startedAt       DateTime @map("started_at") @db.Timestamptz(6)
+  durationSeconds Int      @default(0) @map("duration_seconds")
+  phoneNumber     String?  @map("phone_number")
   summary         String?
-  nextAction      String?   @map("next_action")
+  nextAction      String?  @map("next_action")
   followUpAt      DateTime? @map("follow_up_at") @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -675,4 +686,35 @@ model CrmCall {
   @@index([companyId, startedAt])
   @@index([contactId, startedAt])
   @@map("crm_calls")
+}
+
+
+model ContactGroup {
+  id          String   @id @default(cuid())
+  companyId   String   @map("company_id")
+  name        String
+  description String?
+  color       String   @default("#6653E8")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  members ContactGroupMember[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("contact_groups")
+}
+
+model ContactGroupMember {
+  groupId   String   @map("group_id")
+  contactId String   @map("contact_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  group   ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  contact Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, contactId])
+  @@index([contactId])
+  @@map("contact_group_members")
 }

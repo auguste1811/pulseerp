@@ -12,6 +12,7 @@ import {
   deleteContact,
   updateContact,
   scheduleContactMeeting,
+  updateContactGroups,
 } from "../actions";
 
 const statuses: Record<string, string> = {
@@ -45,7 +46,7 @@ export default async function ContactDetails({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [contacts, notes, activities, nextMeetings, calls] = await Promise.all([
+  const [contacts, notes, activities, nextMeetings, calls, groups, selectedGroups] = await Promise.all([
     query<any>(
       `
       SELECT c.*, u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
@@ -90,7 +91,6 @@ export default async function ContactDetails({
       `,
       [id, member.company_id],
     ),
-,
     query<any>(
       `
       SELECT c.*, u.first_name AS creator_first_name, u.last_name AS creator_last_name
@@ -102,24 +102,14 @@ export default async function ContactDetails({
       `,
       [id, member.company_id],
     ),
+    query<any>("SELECT id,name,color FROM contact_groups WHERE company_id=$1 ORDER BY name", [member.company_id]),
+    query<any>("SELECT group_id FROM contact_group_members WHERE contact_id=$1", [id]),
   ]);
 
   const contact = contacts[0];
   const nextMeeting = nextMeetings[0];
-
-  type CallRow = {
-    id: string;
-    direction: "OUTBOUND" | "INBOUND";
-    status: string;
-    started_at: string | Date;
-    duration_seconds: number;
-    creator_first_name: string;
-    creator_last_name: string;
-    summary: string | null;
-    next_action: string | null;
-  };
-
-  const callRows: CallRow[] = calls ?? [];
+  const callRows:any[] = calls ?? [];
+  const selectedGroupIds = new Set(selectedGroups.map((item:any)=>item.group_id));
   if (!contact) notFound();
 
   return (
@@ -139,7 +129,7 @@ export default async function ContactDetails({
         </div>
       </section>
 
-      {(feedback.saved || feedback.noteAdded || feedback.activityAdded || feedback.meetingCreated || feedback.callSaved) && (
+      {(feedback.saved || feedback.noteAdded || feedback.activityAdded || feedback.meetingCreated || feedback.callSaved || feedback.groupsSaved) && (
         <div className="import-alert success">
           <strong>Enregistré.</strong>
           <span>Les informations de la fiche client ont été mises à jour.</span>
@@ -240,6 +230,8 @@ export default async function ContactDetails({
 
 
 
+          <article className="dashboard-panel contact-groups-detail"><div className="panel-header"><div><h2>Groupes du contact</h2><p>Le contact peut appartenir à plusieurs groupes.</p></div></div><form action={updateContactGroups} className="contact-group-checkboxes"><input type="hidden" name="contactId" value={contact.id}/>{groups.map((group:any)=><label key={group.id}><input type="checkbox" name="groupIds" value={group.id} defaultChecked={selectedGroupIds.has(group.id)}/><i style={{background:group.color}}/><span>{group.name}</span></label>)}{!groups.length&&<p>Créez d’abord un groupe depuis la liste des contacts.</p>}<button className="primary-action" type="submit">Enregistrer les groupes</button></form></article>
+
           <CallPanel
             contactId={contact.id}
             phone={normalizeFrenchPhone(contact.phone)}
@@ -259,7 +251,7 @@ export default async function ContactDetails({
               <span className="module-count-badge">{callRows.length}</span>
             </div>
             <div className="crm-call-history-list">
-              {callRows.map((call: CallRow) => (
+              {callRows.map((call:any) => (
                 <article key={call.id}>
                   <div className="crm-call-history-icon">{call.direction === "OUTBOUND" ? "↗" : "↙"}</div>
                   <div>

@@ -25,6 +25,7 @@ const contactSchema = z.object({
     "LOST",
   ]),
   value: z.coerce.number().min(0).max(100000000),
+  groupId: z.string().trim().optional(),
 });
 
 const aliases: Record<string, string[]> = {
@@ -79,6 +80,7 @@ export async function createContact(formData: FormData) {
     source: formData.get("source") || "",
     status: formData.get("status") || "PROSPECT",
     value: formData.get("value") || 0,
+    groupId: formData.get("groupId") || "",
   });
 
   if (!parsed.success) redirect("/contacts?error=invalid");
@@ -106,6 +108,11 @@ export async function createContact(formData: FormData) {
       parsed.data.value,
     ],
   );
+
+  if (parsed.data.groupId) {
+    const group = await query<{id:string}>("SELECT id FROM contact_groups WHERE id=$1 AND company_id=$2 LIMIT 1", [parsed.data.groupId, member.company_id]);
+    if (group[0]) await query("INSERT INTO contact_group_members (group_id,contact_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [parsed.data.groupId, contactId]);
+  }
 
   await query(
     `
@@ -148,6 +155,11 @@ export async function createContact(formData: FormData) {
 export async function importContactsCsv(formData: FormData) {
   const member = await currentContext();
   const uploaded = formData.get("csvFile");
+  const groupId = String(formData.get("groupId") || "");
+  if (groupId) {
+    const group = await query<{id:string}>("SELECT id FROM contact_groups WHERE id=$1 AND company_id=$2 LIMIT 1", [groupId, member.company_id]);
+    if (!group[0]) redirect("/contacts?importError=group");
+  }
 
   if (!(uploaded instanceof File)) {
     redirect("/contacts?importError=file");
@@ -240,11 +252,13 @@ export async function importContactsCsv(formData: FormData) {
               contact.value,
             ],
           );
+          if (groupId) await client.query("INSERT INTO contact_group_members (group_id,contact_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [groupId, existing.rows[0].id]);
           updated += 1;
           continue;
         }
       }
 
+      const importedContactId = randomUUID();
       await client.query(
         `
         INSERT INTO contacts (
@@ -254,7 +268,7 @@ export async function importContactsCsv(formData: FormData) {
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         `,
         [
-          randomUUID(),
+          importedContactId,
           member.company_id,
           contact.firstName,
           contact.lastName,
@@ -266,6 +280,7 @@ export async function importContactsCsv(formData: FormData) {
           contact.value,
         ],
       );
+      if (groupId) await client.query("INSERT INTO contact_group_members (group_id,contact_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", [groupId, importedContactId]);
       inserted += 1;
     }
 
@@ -772,3 +787,14 @@ export async function logCrmCall(formData: FormData) {
   revalidatePath("/dashboard");
   redirect(`/contacts/${contactId}?callSaved=1`);
 }
+
+
+export async function createContactGroup(formData: FormData) {
+  const member=await currentContext();
+  const parsed=z.object({name:z.string().trim().min(2).max(100),description:z.string().trim().max(500).optional(),color:z.string().regex(/^#[0-9A-Fa-f]{6}$/)}).safeParse({name:formData.get("name"),description:formData.get("description")||"",color:formData.get("color")||"#6653E8"});
+  if(!parsed.success) redirect("/contacts?groupError=invalid");
+  try{await query("INSERT INTO contact_groups (id,company_id,name,description,color) VALUES ($1,$2,$3,$4,$5)",[randomUUID(),member.company_id,parsed.data.name,parsed.data.description||null,parsed.data.color]);}catch(error){console.error(error);redirect("/contacts?groupError=duplicate");}
+  revalidatePath("/contacts");redirect("/contacts?groupCreated=1");
+}
+export async function deleteContactGroup(formData: FormData){const member=await currentContext();const groupId=String(formData.get("groupId")||"");await query("DELETE FROM contact_groups WHERE id=$1 AND company_id=$2",[groupId,member.company_id]);revalidatePath("/contacts");redirect("/contacts?groupDeleted=1");}
+export async function updateContactGroups(formData: FormData){const member=await currentContext();const contactId=String(formData.get("contactId")||"");const groupIds=formData.getAll("groupIds").map(String);const contact=await query<{id:string}>("SELECT id FROM contacts WHERE id=$1 AND company_id=$2",[contactId,member.company_id]);if(!contact[0])redirect("/contacts");const valid=groupIds.length?await query<{id:string}>("SELECT id FROM contact_groups WHERE company_id=$1 AND id=ANY($2::text[])",[member.company_id,groupIds]):[];const client=await pool.connect();try{await client.query("BEGIN");await client.query("DELETE FROM contact_group_members WHERE contact_id=$1",[contactId]);for(const group of valid)await client.query("INSERT INTO contact_group_members (group_id,contact_id) VALUES ($1,$2)",[group.id,contactId]);await client.query("COMMIT");}catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}revalidatePath(`/contacts/${contactId}`);revalidatePath("/contacts");redirect(`/contacts/${contactId}?groupsSaved=1`);}

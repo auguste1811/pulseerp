@@ -113,14 +113,14 @@ export function AppSidebar({
         </button>
       </div>
 
-      <div className="enterprise-company">
+      <Link href="/companies" className="enterprise-company">
         <span>{companyName.slice(0, 1).toUpperCase()}</span>
         <div>
           <strong>{companyName}</strong>
           <small>Espace principal</small>
         </div>
         <Icon name="arrowDown" size={15} />
-      </div>
+      </Link>
 
       <div className="enterprise-nav-scroll">
         {isPlatformAdmin && (
@@ -169,7 +169,7 @@ export function AppSidebar({
       </div>
 
       <div className="enterprise-sidebar-footer">
-        <Link href="/settings">
+        <Link href="/companies"><Icon name="dashboard" size={18}/><span>Mes entreprises</span></Link><Link href="/settings">
           <Icon name="settings" size={18} />
           <span>Paramètres</span>
         </Link>

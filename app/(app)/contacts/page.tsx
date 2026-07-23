@@ -1,179 +1,19 @@
+import Link from "next/link";
 import { currentContext } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { euro } from "@/lib/format";
 import { Icon } from "../components/icons";
-import { createContact, importContactsCsv } from "./actions";
-
-const statuses: Record<string, string> = {
-  PROSPECT: "Prospect",
-  CONTACTED: "Contacté",
-  MEETING: "Rendez-vous",
-  NEGOTIATION: "Négociation",
-  CUSTOMER: "Client",
-  LOST: "Perdu",
-};
-
-const importErrors: Record<string, string> = {
-  file: "Aucun fichier CSV n’a été sélectionné.",
-  size: "Le fichier doit faire moins de 2 Mo.",
-  format: "Le fichier doit être au format CSV.",
-  rows: "Le fichier est vide ou dépasse 5 000 lignes.",
-  invalid: "Aucune ligne valide n’a été trouvée.",
-  database: "L’import a échoué lors de l’enregistrement.",
-};
-
-export default async function Contacts({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    imported?: string;
-    updated?: string;
-    rejected?: string;
-    importError?: string;
-  }>;
-}) {
-  const member = await currentContext();
-  const params = await searchParams;
-  const rows = await query<any>(
-    "SELECT * FROM contacts WHERE company_id=$1 ORDER BY created_at DESC",
-    [member.company_id],
-  );
-
-  const importSucceeded =
-    params.imported !== undefined || params.updated !== undefined;
-
-  return (
-    <>
-      <section className="page-heading">
-        <div>
-          <p className="eyebrow">CRM Pro</p>
-          <h1>Contacts et opportunités</h1>
-          <p>Centralisez vos prospects, clients et opportunités commerciales.</p>
-        </div>
-        <div className="heading-actions">
-          <a className="secondary-action" href="/contacts/pipeline">Voir le pipeline</a>
-          <button className="primary-action" form="contact-form" type="submit">
-            <Icon name="plus" size={17} /> Nouveau contact
-          </button>
-        </div>
-      </section>
-
-      <section className="crm-stats-grid">
-        <div><span>Contacts</span><strong>{rows.length}</strong></div>
-        <div><span>Prospects</span><strong>{rows.filter((row) => row.status === "PROSPECT").length}</strong></div>
-        <div><span>Clients</span><strong>{rows.filter((row) => row.status === "CUSTOMER").length}</strong></div>
-        <div><span>Pipeline</span><strong>{euro(rows.filter((row) => !["CUSTOMER","LOST"].includes(row.status)).reduce((sum, row) => sum + Number(row.value), 0))}</strong></div>
-      </section>
-
-      {importSucceeded && (
-        <div className="import-alert success">
-          <strong>Import terminé.</strong>
-          <span>
-            {params.imported ?? "0"} ajouté(s), {params.updated ?? "0"} mis à jour,
-            {" "}{params.rejected ?? "0"} rejeté(s).
-          </span>
-        </div>
-      )}
-
-      {params.importError && (
-        <div className="import-alert error">
-          <strong>Import impossible.</strong>
-          <span>{importErrors[params.importError] ?? "Vérifiez votre fichier CSV."}</span>
-        </div>
-      )}
-
-      <section className="crm-import-panel dashboard-panel">
-        <div className="csv-import-copy">
-          <span className="csv-icon">CSV</span>
-          <div>
-            <h2>Importer des contacts</h2>
-            <p>
-              Importez jusqu’à 5 000 contacts. Les doublons sont mis à jour
-              automatiquement grâce à leur adresse email.
-            </p>
-          </div>
-        </div>
-
-        <form action={importContactsCsv} className="csv-import-form">
-          <label className="csv-file-picker">
-            <input name="csvFile" type="file" accept=".csv,text/csv" required />
-            <span>Sélectionner un CSV</span>
-          </label>
-          <button className="secondary-action" type="submit">
-            Importer
-          </button>
-          <a className="text-link" href="/modele-contacts.csv" download>
-            Télécharger le modèle
-          </a>
-        </form>
-      </section>
-
-      <section className="module-grid">
-        <article className="dashboard-panel form-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Ajouter un contact</h2>
-              <p>Créez rapidement une nouvelle opportunité.</p>
-            </div>
-          </div>
-          <form id="contact-form" action={createContact} className="premium-form">
-            <div className="form-row">
-              <label>Prénom<input name="firstName" placeholder="Lucas" required /></label>
-              <label>Nom<input name="lastName" placeholder="Martin" required /></label>
-            </div>
-            <label>Entreprise<input name="companyName" placeholder="LM Conseil" /></label>
-            <label>Email<input name="email" type="email" placeholder="lucas@entreprise.fr" /></label>
-            <label>Téléphone<input name="phone" placeholder="+33 6 00 00 00 00" /></label>
-            <label>Source
-              <select name="source" defaultValue="">
-                <option value="">Non renseignée</option>
-                <option value="Ads">Ads</option>
-                <option value="Clipping">Clipping</option>
-                <option value="UGC / Affilié">UGC / Affilié</option>
-                <option value="Influenceur">Influenceur</option>
-                <option value="Organique">Organique</option>
-                <option value="Site comparatif">Site comparatif</option>
-              </select>
-            </label>
-            <label>Étape commerciale
-              <select name="status">
-                {Object.entries(statuses).map(([value, label]) => (
-                  <option value={value} key={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label>Valeur estimée (€)<input name="value" type="number" min="0" placeholder="3500" /></label>
-            <button className="primary-action full-width" type="submit">Ajouter au CRM</button>
-          </form>
-        </article>
-
-        <article className="dashboard-panel list-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Contacts</h2>
-              <p>{rows.length} contact{rows.length > 1 ? "s" : ""} enregistré{rows.length > 1 ? "s" : ""}</p>
-            </div>
-            <div className="compact-search"><Icon name="search" size={16}/><span>Rechercher...</span></div>
-          </div>
-          <div className="contact-list">
-            {rows.map((contact) => (
-              <div className="contact-row" key={contact.id}>
-                <span className="contact-avatar">{contact.first_name[0]}{contact.last_name[0]}</span>
-                <div className="contact-main">
-                  <a href={`/contacts/${contact.id}`}><strong>{contact.first_name} {contact.last_name}</strong></a>
-                  <small>{contact.company_name || contact.email || "Sans entreprise"}</small>
-                </div>
-                <span className={`status-pill ${contact.status.toLowerCase()}`}>
-                  {statuses[contact.status] ?? contact.status}
-                </span>
-                <strong className="contact-value">{euro(Number(contact.value))}</strong>
-                <button className="row-menu" type="button"><Icon name="more" size={18}/></button>
-              </div>
-            ))}
-            {rows.length === 0 && <div className="empty-state">Ajoutez votre premier contact.</div>}
-          </div>
-        </article>
-      </section>
-    </>
-  );
+import { createContact, importContactsCsv, createContactGroup, deleteContactGroup } from "./actions";
+const statuses:Record<string,string>={PROSPECT:"Prospect",CONTACTED:"Contacté",MEETING:"Rendez-vous",NEGOTIATION:"Négociation",CUSTOMER:"Client",LOST:"Perdu"};
+const importErrors:Record<string,string>={file:"Aucun fichier CSV sélectionné.",size:"Le fichier doit faire moins de 2 Mo.",format:"Le fichier doit être au format CSV.",rows:"Le fichier est vide ou dépasse 5 000 lignes.",invalid:"Aucune ligne valide.",database:"Échec de l’enregistrement.",group:"Le groupe sélectionné est invalide."};
+export default async function Contacts({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){const member=await currentContext(),params=await searchParams,q=(params.q||"").trim(),groupId=params.group||"",like=`%${q}%`;
+ const [groups,rows]=await Promise.all([query<any>(`SELECT g.*,COUNT(gm.contact_id)::int contact_count FROM contact_groups g LEFT JOIN contact_group_members gm ON gm.group_id=g.id WHERE g.company_id=$1 GROUP BY g.id ORDER BY g.name`,[member.company_id]),query<any>(`SELECT c.*,COALESCE(json_agg(json_build_object('id',g.id,'name',g.name,'color',g.color)) FILTER (WHERE g.id IS NOT NULL),'[]') groups FROM contacts c LEFT JOIN contact_group_members gm ON gm.contact_id=c.id LEFT JOIN contact_groups g ON g.id=gm.group_id WHERE c.company_id=$1 AND ($2='' OR c.first_name ILIKE $3 OR c.last_name ILIKE $3 OR c.company_name ILIKE $3 OR c.email ILIKE $3) AND ($4='' OR EXISTS(SELECT 1 FROM contact_group_members x WHERE x.contact_id=c.id AND x.group_id=$4)) GROUP BY c.id ORDER BY c.created_at DESC`,[member.company_id,q,like,groupId])]);
+ const importSucceeded=params.imported!==undefined||params.updated!==undefined;
+ return <><section className="page-heading"><div><p className="eyebrow">CRM Pro</p><h1>Contacts et groupes</h1><p>Centralisez vos prospects, clients et listes de contacts.</p></div><div className="heading-actions"><Link className="secondary-action" href="/contacts/pipeline">Voir le pipeline</Link><button className="primary-action" form="contact-form" type="submit"><Icon name="plus" size={17}/> Nouveau contact</button></div></section>
+ <section className="crm-stats-grid"><div><span>Contacts affichés</span><strong>{rows.length}</strong></div><div><span>Groupes</span><strong>{groups.length}</strong></div><div><span>Clients</span><strong>{rows.filter(x=>x.status==="CUSTOMER").length}</strong></div><div><span>Pipeline</span><strong>{euro(rows.filter(x=>!["CUSTOMER","LOST"].includes(x.status)).reduce((s,x)=>s+Number(x.value),0))}</strong></div></section>
+ {(importSucceeded||params.groupCreated||params.groupDeleted)&&<div className="import-alert success"><strong>Enregistré.</strong><span>{importSucceeded?`${params.imported||0} ajouté(s), ${params.updated||0} mis à jour, ${params.rejected||0} rejeté(s).`:"Les groupes ont été mis à jour."}</span></div>}{(params.importError||params.groupError)&&<div className="import-alert error"><strong>Action impossible.</strong><span>{params.importError?importErrors[params.importError]:(params.groupError==="duplicate"?"Un groupe porte déjà ce nom.":"Vérifiez les informations.")}</span></div>}
+ <section className="contact-groups-panel dashboard-panel"><div className="panel-header"><div><h2>Groupes de contacts</h2><p>Organisez vos contacts par campagne, équipe, segment ou liste.</p></div></div><div className="contact-group-layout"><form action={createContactGroup} className="contact-group-form"><input name="name" placeholder="Ex. Prospects salon" required/><input name="description" placeholder="Description facultative"/><input name="color" type="color" defaultValue="#6653E8"/><button className="primary-action" type="submit">Créer le groupe</button></form><div className="contact-group-list"><Link className={!groupId?"active":""} href="/contacts">Tous <span>{rows.length}</span></Link>{groups.map(g=><div key={g.id}><Link className={groupId===g.id?"active":""} href={`/contacts?group=${g.id}`}><i style={{background:g.color}}/>{g.name}<span>{g.contact_count}</span></Link><form action={deleteContactGroup}><input type="hidden" name="groupId" value={g.id}/><button type="submit" title="Supprimer le groupe">×</button></form></div>)}</div></div></section>
+ <section className="crm-import-panel dashboard-panel"><div className="csv-import-copy"><span className="csv-icon">CSV</span><div><h2>Importer des contacts</h2><p>Choisissez directement le groupe de destination. Les doublons email sont mis à jour.</p></div></div><form action={importContactsCsv} className="csv-import-form"><label className="csv-file-picker"><input name="csvFile" type="file" accept=".csv,text/csv" required/><span>Sélectionner un CSV</span></label><select name="groupId" defaultValue=""><option value="">Sans groupe</option>{groups.map(g=><option value={g.id} key={g.id}>{g.name}</option>)}</select><button className="secondary-action" type="submit">Importer</button><a className="text-link" href="/modele-contacts.csv" download>Modèle CSV</a></form></section>
+ <section className="module-grid"><article className="dashboard-panel form-panel"><div className="panel-header"><div><h2>Ajouter un contact</h2><p>Créez une opportunité et classez-la immédiatement.</p></div></div><form id="contact-form" action={createContact} className="premium-form"><div className="form-row"><label>Prénom<input name="firstName" required/></label><label>Nom<input name="lastName" required/></label></div><label>Entreprise<input name="companyName"/></label><label>Email<input name="email" type="email"/></label><label>Téléphone<input name="phone"/></label><label>Groupe<select name="groupId" defaultValue=""><option value="">Sans groupe</option>{groups.map(g=><option value={g.id} key={g.id}>{g.name}</option>)}</select></label><label>Source<select name="source" defaultValue=""><option value="">Non renseignée</option>{["Ads","Clipping","UGC / Affilié","Influenceur","Organique","Site comparatif"].map(x=><option key={x}>{x}</option>)}</select></label><label>Étape<select name="status">{Object.entries(statuses).map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label><label>Valeur estimée (€)<input name="value" type="number" min="0"/></label><button className="primary-action full-width" type="submit">Ajouter au CRM</button></form></article>
+ <article className="dashboard-panel list-panel"><div className="panel-header"><div><h2>Contacts</h2><p>{rows.length} résultat(s)</p></div><form className="compact-search" method="get"><Icon name="search" size={16}/><input name="q" defaultValue={q} placeholder="Nom, email, entreprise..."/>{groupId&&<input type="hidden" name="group" value={groupId}/>}</form></div><div className="contact-list">{rows.map(c=><div className="contact-row" key={c.id}><span className="contact-avatar">{c.first_name[0]}{c.last_name[0]}</span><div className="contact-main"><a href={`/contacts/${c.id}`}><strong>{c.first_name} {c.last_name}</strong></a><small>{c.company_name||c.email||"Sans entreprise"}</small><div className="contact-group-badges">{c.groups.map((g:any)=><span style={{borderColor:g.color,color:g.color}} key={g.id}>{g.name}</span>)}</div></div><span className={`status-pill ${c.status.toLowerCase()}`}>{statuses[c.status]||c.status}</span><strong className="contact-value">{euro(Number(c.value))}</strong></div>)}{!rows.length&&<div className="empty-state">Aucun contact ne correspond aux filtres.</div>}</div></article></section></>;
 }

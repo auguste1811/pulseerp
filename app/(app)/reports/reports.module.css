@@ -229,3 +229,5 @@
     grid-template-columns: 1fr;
   }
 }
+
+.periodSummary{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:14px;max-height:180px;overflow:auto}.periodSummary>div{display:grid;gap:3px;padding:10px;border:1px solid #eceef3;border-radius:10px;background:#fafbfc}.periodSummary strong{font-size:9px}.periodSummary span{font-size:8px;color:#5d4ce8}.periodSummary small{font-size:8px;color:#9a6b18}
