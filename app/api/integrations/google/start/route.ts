@@ -33,6 +33,7 @@ export async function GET(request: Request) {
       "email",
       "profile",
       "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/gmail.readonly",
     ].join(" "),
     state,
   });
