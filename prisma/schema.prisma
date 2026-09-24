@@ -41,6 +41,7 @@ model User {
   aiConversations          AiConversation[]
   managedAcquisitionChannels AcquisitionChannel[] @relation("AcquisitionManager")
   crmCallsCreated            CrmCall[] @relation("CrmCallCreator")
+  crmEmailsImported          CrmEmail[] @relation("CrmEmailImporter")
 
   @@map("users")
 }
@@ -149,6 +150,7 @@ model Company {
   acquisitionChannels AcquisitionChannel[]
   crmCalls             CrmCall[]
   contactGroups        ContactGroup[]
+  crmEmails            CrmEmail[]
 
   @@map("companies")
 }
@@ -194,6 +196,7 @@ model Contact {
 
   calls             CrmCall[]
   groupMemberships  ContactGroupMember[]
+  emails            CrmEmail[]
 
   @@index([companyId, status], map: "contacts_company_status_idx")
   @@map("contacts")
@@ -717,4 +720,30 @@ model ContactGroupMember {
   @@id([groupId, contactId])
   @@index([contactId])
   @@map("contact_group_members")
+}
+
+
+model CrmEmail {
+  id             String   @id @default(cuid())
+  companyId      String   @map("company_id")
+  contactId      String   @map("contact_id")
+  importedById   String?  @map("imported_by_id")
+  gmailMessageId String   @map("gmail_message_id")
+  gmailThreadId  String?  @map("gmail_thread_id")
+  fromEmail      String   @map("from_email")
+  fromName       String?  @map("from_name")
+  toEmail        String?  @map("to_email")
+  subject        String
+  snippet        String?  @db.Text
+  bodyText       String?  @db.Text @map("body_text")
+  receivedAt     DateTime @map("received_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  importedBy User?   @relation("CrmEmailImporter", fields: [importedById], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, gmailMessageId])
+  @@index([companyId, contactId, receivedAt(sort: Desc)])
+  @@map("crm_emails")
 }

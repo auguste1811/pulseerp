@@ -46,7 +46,7 @@ export default async function ContactDetails({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [contacts, notes, activities, nextMeetings, calls, groups, selectedGroups] = await Promise.all([
+  const [contacts, notes, activities, nextMeetings, calls, groups, selectedGroups, emails] = await Promise.all([
     query<any>(
       `
       SELECT c.*, u.first_name AS assigned_first_name, u.last_name AS assigned_last_name
@@ -104,6 +104,7 @@ export default async function ContactDetails({
     ),
     query<any>("SELECT id,name,color FROM contact_groups WHERE company_id=$1 ORDER BY name", [member.company_id]),
     query<any>("SELECT group_id FROM contact_group_members WHERE contact_id=$1", [id]),
+    query<any>(`SELECT id, from_email, from_name, to_email, subject, snippet, body_text, received_at FROM crm_emails WHERE contact_id=$1 AND company_id=$2 ORDER BY received_at DESC LIMIT 50`, [id, member.company_id]),
   ]);
 
   const contact = contacts[0];
@@ -244,6 +245,27 @@ export default async function ContactDetails({
               <span>Vérifiez la date, la durée et les informations saisies.</span>
             </div>
           )}
+
+          <article className="dashboard-panel crm-email-history">
+            <div className="panel-header">
+              <div><h2>E-mails Gmail</h2><p>Messages reçus automatiquement depuis un contact CRM.</p></div>
+              <span className="module-count-badge">{emails.length}</span>
+            </div>
+            <div className="crm-call-history-list">
+              {emails.map((email:any) => (
+                <article key={email.id}>
+                  <div className="crm-call-history-icon">✉</div>
+                  <div>
+                    <strong>{email.subject}</strong>
+                    <small>{new Date(email.received_at).toLocaleString("fr-FR")} · {email.from_name || email.from_email}</small>
+                    {(email.body_text || email.snippet) && <p>{email.body_text || email.snippet}</p>}
+                  </div>
+                  <span className="status-pill">Gmail</span>
+                </article>
+              ))}
+              {emails.length === 0 && <div className="empty-state">Aucun e-mail Gmail associé à ce contact.</div>}
+            </div>
+          </article>
 
           <article className="dashboard-panel crm-call-history">
             <div className="panel-header">

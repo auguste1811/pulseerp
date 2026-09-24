@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.redirect(
-      new URL("/integrations?connected=google", request.url),
+      new URL("/api/integrations/google/post-connect", request.url),
     );
   } catch (error) {
     console.error(error);
