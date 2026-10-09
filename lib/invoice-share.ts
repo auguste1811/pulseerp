@@ -64,3 +64,16 @@ export function tryBuildPublicInvoiceUrl(
     return "";
   }
 }
+
+export function buildPublicQuoteSignUrl(quoteId: string, companyId: string) {
+  const token = createInvoiceShareToken(quoteId, companyId);
+  return `${applicationBaseUrl()}/quotes/${encodeURIComponent(quoteId)}?token=${encodeURIComponent(token)}`;
+}
+
+export function tryBuildPublicQuoteSignUrl(quoteId: string, companyId: string) {
+  try {
+    return buildPublicQuoteSignUrl(quoteId, companyId);
+  } catch {
+    return "";
+  }
+}

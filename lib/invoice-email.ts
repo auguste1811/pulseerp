@@ -210,7 +210,12 @@ function preparePdfLogo(logoUrl: string | null | undefined): PdfLogoImage | null
 
 export function buildInvoicePdf(invoice: InvoiceEmailData): Buffer {
   const logo = preparePdfLogo(invoice.issuer.logoUrl);
-  const docLabel = invoice.documentType === "QUOTE" ? "DEVIS" : "FACTURE";
+  const docLabel =
+    invoice.documentType === "QUOTE"
+      ? "DEVIS"
+      : invoice.documentType === "CREDIT_NOTE"
+        ? "AVOIR"
+        : "FACTURE";
   const pages: string[][] = [[]];
   let pageIndex = 0;
   let y = 790;
@@ -417,7 +422,7 @@ export function buildInvoiceEmailHtml(
   message: string,
 ): string {
   const safeMessage = escapeHtml(message).replace(/\n/g, "<br />");
-  const docLabel = invoice.documentType === "QUOTE" ? "Devis" : "Facture";
+  const docLabel = invoice.documentType === "QUOTE" ? "Devis" : invoice.documentType === "CREDIT_NOTE" ? "Avoir" : "Facture";
   const logoImg =
     invoice.issuer.logoUrl && invoice.issuer.logoUrl.startsWith("data:image/")
       ? `<img src="${invoice.issuer.logoUrl}" alt="Logo" style="max-height:48px;max-width:160px;object-fit:contain;background:#fff;border-radius:8px;padding:4px;" />`

@@ -3,14 +3,18 @@ import { notFound } from "next/navigation";
 import { currentContext } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { euro } from "@/lib/format";
-import { buildPublicInvoiceUrl } from "@/lib/invoice-share";
+import { buildPublicInvoiceUrl, tryBuildPublicQuoteSignUrl } from "@/lib/invoice-share";
 import { normalizeFrenchPhone } from "@/lib/phone";
 import { InvoiceMessageShare } from "./invoice-message-share";
 import { InvoiceEmailShare } from "./invoice-email-share";
+import { QuoteSignShare } from "./quote-sign-share";
 import {
   addDocumentItem,
   convertQuoteToInvoice,
+  createCreditNoteFromInvoice,
+  deleteDocumentPayment,
   deleteSalesDocument,
+  recordDocumentPayment,
   updateDocumentStatus
 } from "../actions";
 
@@ -34,13 +38,15 @@ export default async function BillingDetail({
   const { id } = await params;
   const feedback = await searchParams;
 
-  const [documents, items, stripeConnections] = await Promise.all([
+  const [documents, items, stripeConnections, payments] = await Promise.all([
     query<any>(
       `
       SELECT d.*, c.first_name, c.last_name, c.company_name,
-             c.email, c.phone, c.address, c.siret, c.vat_number
+             c.email, c.phone, c.address, c.siret, c.vat_number,
+             src.document_number AS source_document_number
       FROM sales_documents d
       LEFT JOIN contacts c ON c.id = d.contact_id
+      LEFT JOIN sales_documents src ON src.id = d.source_invoice_id
       WHERE d.id = $1 AND d.company_id = $2
       LIMIT 1
       `,
@@ -64,6 +70,15 @@ export default async function BillingDetail({
       `,
       [member.company_id],
     ),
+    query<any>(
+      `
+      SELECT id, amount, paid_at, method, notes
+      FROM document_payments
+      WHERE document_id = $1 AND company_id = $2
+      ORDER BY paid_at DESC, created_at DESC
+      `,
+      [id, member.company_id],
+    ),
   ]);
 
 
@@ -75,6 +90,7 @@ export default async function BillingDetail({
     stripeSettings.accountId && stripeSettings.chargesEnabled,
   );
   let publicInvoiceUrl = "";
+  let publicQuoteSignUrl = "";
 
   if (document.document_type === "INVOICE") {
     try {
@@ -88,6 +104,19 @@ export default async function BillingDetail({
       console.warn("Lien public de facture indisponible", error);
     }
   }
+
+  if (
+    document.document_type === "QUOTE" &&
+    ["SENT", "ACCEPTED"].includes(document.status)
+  ) {
+    publicQuoteSignUrl = tryBuildPublicQuoteSignUrl(
+      document.id,
+      member.company_id,
+    );
+  }
+
+  const paidSum = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const remainingDue = Math.max(0, Number(document.total) - paidSum);
   const clientDisplayName =
     document.company_name ||
     `${document.first_name ?? ""} ${document.last_name ?? ""}`.trim();
@@ -98,7 +127,11 @@ export default async function BillingDetail({
         <div>
           <Link className="back-link" href="/billing">← Retour à la facturation</Link>
           <p className="eyebrow">
-            {document.document_type === "QUOTE" ? "Devis" : "Facture"}
+            {document.document_type === "QUOTE"
+              ? "Devis"
+              : document.document_type === "CREDIT_NOTE"
+                ? "Avoir"
+                : "Facture"}
           </p>
           <h1>{document.document_number}</h1>
           <p>
@@ -121,10 +154,17 @@ export default async function BillingDetail({
         </div>
       </section>
 
-      {(feedback.created || feedback.saved || feedback.itemAdded || feedback.converted) && (
+      {(feedback.created || feedback.saved || feedback.itemAdded || feedback.converted || feedback.paymentAdded) && (
         <div className="import-alert success">
           <strong>Document enregistré.</strong>
           <span>Les informations sont à jour.</span>
+        </div>
+      )}
+
+      {(feedback.error === "payment" || feedback.error === "credit") && (
+        <div className="import-alert error">
+          <strong>Enregistrement impossible.</strong>
+          <span>Vérifiez le montant et les informations saisies.</span>
         </div>
       )}
 
@@ -200,6 +240,108 @@ export default async function BillingDetail({
             <div><span>TVA</span><strong>{euro(Number(document.vat_amount))}</strong></div>
             <div className="grand-total"><span>Total TTC</span><strong>{euro(Number(document.total))}</strong></div>
           </article>
+
+          {document.document_type === "CREDIT_NOTE" && document.source_document_number && (
+            <article className="dashboard-panel">
+              <div className="panel-header"><div><h2>Avoir lié</h2><p>Facture d’origine</p></div></div>
+              <p><strong>{document.source_document_number}</strong></p>
+            </article>
+          )}
+
+          {document.document_type === "QUOTE" && publicQuoteSignUrl && (
+            <QuoteSignShare
+              quoteNumber={document.document_number}
+              clientName={clientDisplayName}
+              recipient={document.email || ""}
+              publicUrl={publicQuoteSignUrl}
+              issuerName={member.company_name || "PulseERP"}
+              signed={document.status === "ACCEPTED"}
+            />
+          )}
+
+          {document.document_type === "QUOTE" && !publicQuoteSignUrl && document.status === "SENT" && (
+            <article className="dashboard-panel invoice-message-card">
+              <div className="panel-header">
+                <div>
+                  <h2>Signature en ligne</h2>
+                  <p>Configurez le secret de partage pour activer cette fonction.</p>
+                </div>
+              </div>
+              <div className="invoice-email-warning">
+                Ajoutez <code>INVOICE_SHARE_SECRET</code> dans Vercel,
+                puis redéployez l’application.
+              </div>
+            </article>
+          )}
+
+          {document.document_type === "INVOICE" && (
+            <article className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Acomptes et paiements</h2>
+                  <p>{euro(paidSum)} réglés — reste dû : {euro(remainingDue)}</p>
+                </div>
+              </div>
+              {payments.length > 0 && (
+                <div className="invoice-lines">
+                  {payments.map((payment) => (
+                    <div className="invoice-line" key={payment.id}>
+                      <div>
+                        <strong>{euro(Number(payment.amount))}</strong>
+                        <small>
+                          {" "}{new Date(payment.paid_at).toLocaleDateString("fr-FR")}
+                          {payment.method ? ` — ${payment.method}` : ""}
+                          {payment.notes ? ` — ${payment.notes}` : ""}
+                        </small>
+                      </div>
+                      <form action={deleteDocumentPayment}>
+                        <input type="hidden" name="documentId" value={document.id} />
+                        <input type="hidden" name="paymentId" value={payment.id} />
+                        <button className="danger-action" type="submit">Retirer</button>
+                      </form>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {document.status !== "PAID" && document.status !== "CANCELLED" && (
+                <form action={recordDocumentPayment} className="premium-form">
+                  <input type="hidden" name="documentId" value={document.id} />
+                  <div className="form-row">
+                    <label>Montant (€)
+                      <input name="amount" type="number" step="0.01" min="0.01" placeholder={String(remainingDue.toFixed(2))} required />
+                    </label>
+                    <label>Date
+                      <input name="paidAt" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+                    </label>
+                  </div>
+                  <div className="form-row">
+                    <label>Moyen
+                      <input name="method" placeholder="Virement, CB, espèces..." />
+                    </label>
+                    <label>Notes
+                      <input name="notes" placeholder="Référence..." />
+                    </label>
+                  </div>
+                  <button className="secondary-action full-width" type="submit">
+                    Enregistrer l’acompte
+                  </button>
+                </form>
+              )}
+            </article>
+          )}
+
+          {document.document_type === "INVOICE" && document.status !== "CANCELLED" && (
+            <article className="dashboard-panel conversion-card">
+              <h2>Émettre un avoir</h2>
+              <p>Remboursement total ou partiel : l’avoir reprend les lignes de cette facture.</p>
+              <form action={createCreditNoteFromInvoice}>
+                <input type="hidden" name="documentId" value={document.id} />
+                <button className="secondary-action full-width" type="submit">
+                  Créer un avoir
+                </button>
+              </form>
+            </article>
+          )}
 
           {document.document_type === "INVOICE" && document.status !== "PAID" && (
             <article className="dashboard-panel conversion-card">

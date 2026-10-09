@@ -362,6 +362,16 @@ export default async function SettingsPage({
 
                     <div className={styles.row}>
                       <label>
+                        Préfixe des avoirs
+                        <input
+                          name="creditPrefix"
+                          defaultValue={company.credit_prefix ?? "AVO"}
+                        />
+                      </label>
+                    </div>
+
+                    <div className={styles.row}>
+                      <label>
                         IBAN
                         <input
                           name="iban"

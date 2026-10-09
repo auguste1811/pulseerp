@@ -120,6 +120,7 @@ model Company {
   quoteValidityDays     Int                     @default(30) @map("quote_validity_days")
   quotePrefix           String                  @default("DEV") @map("quote_prefix")
   invoicePrefix         String                  @default("FAC") @map("invoice_prefix")
+  creditPrefix          String                  @default("AVO") @map("credit_prefix")
   updatedAt             DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
   status                String                  @default("ACTIVE")
   accessExpiresAt       DateTime?               @map("access_expires_at") @db.Timestamptz(6)
@@ -315,6 +316,9 @@ model SalesDocument {
   vatAmount             Decimal                 @default(0) @map("vat_amount") @db.Decimal
   total                 Decimal                 @default(0) @db.Decimal
   sourceQuoteId         String?                 @map("source_quote_id")
+  sourceInvoiceId       String?                 @map("source_invoice_id")
+  signedAt              DateTime?               @map("signed_at") @db.Timestamptz(6)
+  signedBy              String?                 @map("signed_by")
   createdBy             String?                 @map("created_by")
   createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -724,4 +728,18 @@ model sales_document_emails {
 
   @@index([company_id, created_at(sort: Desc)])
   @@index([document_id, created_at(sort: Desc)])
+}
+
+model DocumentPayment {
+  id         String   @id @default(cuid())
+  companyId  String   @map("company_id")
+  documentId String   @map("document_id")
+  amount     Decimal  @default(0) @db.Decimal
+  paidAt     DateTime @default(dbgenerated("CURRENT_DATE")) @map("paid_at") @db.Date
+  method     String?
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([documentId, paidAt])
+  @@map("document_payments")
 }

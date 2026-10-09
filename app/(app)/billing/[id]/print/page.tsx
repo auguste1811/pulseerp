@@ -30,7 +30,9 @@ export default async function PrintableDocument({
              co.iban AS issuer_iban,
              co.bic AS issuer_bic,
              co.logo_url AS issuer_logo_url,
-             co.invoice_footer AS issuer_footer
+             co.invoice_footer AS issuer_footer,
+             d.signed_at,
+             d.signed_by
       FROM sales_documents d
       JOIN companies co ON co.id = d.company_id
       LEFT JOIN contacts c ON c.id = d.contact_id
@@ -70,10 +72,16 @@ export default async function PrintableDocument({
           ) : (
             <span className="print-logo">P</span>
           )}
-          <p>{document.document_type === "QUOTE" ? "DEVIS" : "FACTURE"}</p>
+          <p>{document.document_type === "QUOTE" ? "DEVIS" : document.document_type === "CREDIT_NOTE" ? "AVOIR" : "FACTURE"}</p>
           <h1>{document.document_number}</h1>
         </div>
       </header>
+
+      {document.signed_at && (
+        <p className="print-hint" style={{ textAlign: "left" }}>
+          Signé électroniquement{document.signed_by ? ` par ${document.signed_by}` : ""} le {new Date(document.signed_at).toLocaleDateString("fr-FR")}.
+        </p>
+      )}
 
       <section className="print-parties">
         <div>

@@ -23,10 +23,10 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
       subtotal, vat_amount, total, original_name, mime_type, size_bytes,
       ocr_status, ocr_confidence, ocr_error
       FROM purchase_invoices WHERE company_id=$1 ORDER BY issue_date DESC, created_at DESC`, [member.company_id]),
-    query<any>(`SELECT d.id, d.document_number, d.issue_date, d.status, d.subtotal, d.vat_amount, d.total,
+    query<any>(`SELECT d.id, d.document_number, d.document_type, d.issue_date, d.status, d.subtotal, d.vat_amount, d.total,
       COALESCE(c.company_name, CONCAT(c.first_name,' ',c.last_name), 'Client') AS customer
       FROM sales_documents d LEFT JOIN contacts c ON c.id=d.contact_id
-      WHERE d.company_id=$1 AND d.document_type='INVOICE'
+      WHERE d.company_id=$1 AND d.document_type IN ('INVOICE','CREDIT_NOTE')
       ORDER BY d.issue_date DESC`, [member.company_id]),
     query<any>(`SELECT journal, account_number, label, debit, credit, entry_date
       FROM accounting_entries WHERE company_id=$1 ORDER BY entry_date DESC, created_at DESC LIMIT 100`, [member.company_id]),
@@ -64,7 +64,7 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
       <article className="dashboard-panel accounting-list-panel">
         <div className="panel-header"><div><h2>Factures de vente</h2><p>Synchronisées automatiquement depuis Devis & factures.</p></div><Link className="secondary-action" href="/billing">Ouvrir la facturation</Link></div>
         <div className="accounting-table-wrap"><table className="accounting-table"><thead><tr><th>N°</th><th>Client</th><th>Date</th><th>HT</th><th>TVA</th><th>TTC</th><th>Statut</th></tr></thead>
-        <tbody>{sales.map(row=><tr key={row.id}><td><Link href={`/billing/${row.id}`}>{row.document_number}</Link></td><td>{row.customer}</td><td>{new Date(row.issue_date).toLocaleDateString('fr-FR')}</td><td>{euro(Number(row.subtotal))}</td><td>{euro(Number(row.vat_amount))}</td><td><strong>{euro(Number(row.total))}</strong></td><td><span className={`status-pill ${String(row.status).toLowerCase()}`}>{row.status}</span></td></tr>)}</tbody></table></div>
+        <tbody>{sales.map(row=>{ const sign = row.document_type==='CREDIT_NOTE' ? -1 : 1; return (<tr key={row.id}><td><Link href={`/billing/${row.id}`}>{row.document_number}</Link></td><td>{row.customer}</td><td>{new Date(row.issue_date).toLocaleDateString('fr-FR')}</td><td>{euro(Number(row.subtotal)*sign)}</td><td>{euro(Number(row.vat_amount)*sign)}</td><td><strong>{euro(Number(row.total)*sign)}</strong></td><td><span className={`status-pill ${String(row.status).toLowerCase()}`}>{row.document_type==='CREDIT_NOTE'?'Avoir':row.status}</span></td></tr>);})}</tbody></table></div>
       </article>
 
       <article id="purchase-import" className="dashboard-panel form-panel purchase-import-panel">
@@ -92,6 +92,22 @@ export default async function Transactions({ searchParams }: { searchParams: Pro
     </article>
 
     <section className="module-grid accounting-bottom-grid">
+      <article id="export" className="dashboard-panel form-panel">
+        <div className="panel-header"><div><h2>Export expert-comptable</h2><p>CSV Excel ou FEC pour la liasse comptable.</p></div></div>
+        <form className="premium-form" action="/api/accounting/export" method="GET">
+          <label>Exercice
+            <input name="year" type="number" min="2000" max="2100" defaultValue={new Date().getFullYear()} required />
+          </label>
+          <label>Format
+            <select name="format" defaultValue="fec">
+              <option value="fec">FEC — écritures comptables</option>
+              <option value="csv-ventes">CSV — factures et avoirs de vente</option>
+              <option value="csv-achats">CSV — factures d’achat</option>
+            </select>
+          </label>
+          <button className="primary-action full-width" type="submit">Télécharger l’export</button>
+        </form>
+      </article>
       <article id="manual-operation" className="dashboard-panel form-panel"><div className="panel-header"><div><h2>Opération manuelle</h2><p>Pour les mouvements sans facture.</p></div></div>
       <form id="transaction-form" action={createTransaction} className="premium-form"><label>Type<select name="type"><option value="INCOME">Revenu</option><option value="EXPENSE">Dépense</option></select></label><label>Date<input name="date" type="date" required/></label><label>Libellé<input name="label" required/></label><label>Catégorie<input name="category"/></label><label>Source du revenu<input name="revenueSource" placeholder="Optionnel pour les revenus"/></label><div className="form-row"><label>Montant HT<input name="amount" type="number" step="0.01" min="0" required/></label><label>TVA (%)<input name="vatRate" type="number" step="0.1" defaultValue="20" min="0"/></label></div><label>Statut<select name="status"><option value="PAID">Payé</option><option value="PENDING">En attente</option><option value="OVERDUE">Impayé</option></select></label><button className="primary-action full-width">Enregistrer</button></form></article>
       <article className="dashboard-panel accounting-list-panel"><div className="panel-header"><div><h2>Écritures d’achat</h2><p>Journal ACH généré automatiquement.</p></div></div><div className="accounting-entries">{entries.map((e,i)=><div className="accounting-entry" key={`${e.account_number}-${i}`}><span>{e.journal}</span><strong>{e.account_number}</strong><div><b>{e.label}</b><small>{new Date(e.entry_date).toLocaleDateString('fr-FR')}</small></div><em>{Number(e.debit)>0?`Débit ${euro(Number(e.debit))}`:`Crédit ${euro(Number(e.credit))}`}</em></div>)}</div></article>

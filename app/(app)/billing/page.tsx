@@ -46,6 +46,7 @@ export default async function BillingPage({
 
   const invoices = documents.filter((doc) => doc.document_type === "INVOICE");
   const quotes = documents.filter((doc) => doc.document_type === "QUOTE");
+  const creditNotes = documents.filter((doc) => doc.document_type === "CREDIT_NOTE");
   const paidTotal = invoices
     .filter((doc) => doc.status === "PAID")
     .reduce((sum, doc) => sum + Number(doc.total), 0);
@@ -87,6 +88,13 @@ export default async function BillingPage({
         <div><span>À recevoir</span><strong>{euro(pendingTotal)}</strong></div>
       </section>
 
+      {creditNotes.length > 0 && (
+        <section className="billing-stats-grid">
+          <div><span>Avoirs émis</span><strong>{creditNotes.length}</strong></div>
+          <div><span>Total avoirs</span><strong>{euro(creditNotes.reduce((sum, doc) => sum + Number(doc.total), 0))}</strong></div>
+        </section>
+      )}
+
       <section className="module-grid">
         <article className="dashboard-panel form-panel">
           <div className="panel-header">
@@ -120,6 +128,7 @@ export default async function BillingPage({
                 <select name="documentType" defaultValue="QUOTE">
                   <option value="QUOTE">Devis</option>
                   <option value="INVOICE">Facture</option>
+                  <option value="CREDIT_NOTE">Avoir</option>
                 </select>
               </label>
 
@@ -176,7 +185,7 @@ export default async function BillingPage({
             {documents.map((doc) => (
               <Link className="billing-row" href={`/billing/${doc.id}`} key={doc.id}>
                 <span className={`document-type-icon ${doc.document_type.toLowerCase()}`}>
-                  {doc.document_type === "QUOTE" ? "DEV" : "FAC"}
+                  {doc.document_type === "QUOTE" ? "DEV" : doc.document_type === "CREDIT_NOTE" ? "AVO" : "FAC"}
                 </span>
                 <div>
                   <strong>{doc.document_number}</strong>

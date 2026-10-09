@@ -9,7 +9,7 @@ import { currentContext } from "@/lib/auth";
 import { emitAutomationEvent } from "@/lib/automation-engine";
 import { pool, query } from "@/lib/db";
 
-const documentTypes = ["QUOTE", "INVOICE"] as const;
+const documentTypes = ["QUOTE", "INVOICE", "CREDIT_NOTE"] as const;
 const documentStatuses = [
   "DRAFT",
   "SENT",
@@ -35,7 +35,7 @@ const createSchema = z.object({
 async function nextDocumentNumber(
   client: PoolClient,
   companyId: string,
-  documentType: "QUOTE" | "INVOICE",
+  documentType: "QUOTE" | "INVOICE" | "CREDIT_NOTE",
 ): Promise<string> {
   const year = new Date().getFullYear();
 
@@ -55,9 +55,10 @@ async function nextDocumentNumber(
   const companyResult = await client.query<{
     quote_prefix: string;
     invoice_prefix: string;
+    credit_prefix: string;
   }>(
     `
-    SELECT quote_prefix, invoice_prefix
+    SELECT quote_prefix, invoice_prefix, credit_prefix
     FROM companies
     WHERE id=$1
     LIMIT 1
@@ -69,7 +70,9 @@ async function nextDocumentNumber(
   const prefix =
     documentType === "QUOTE"
       ? settings?.quote_prefix || "DEV"
-      : settings?.invoice_prefix || "FAC";
+      : documentType === "CREDIT_NOTE"
+        ? settings?.credit_prefix || "AVO"
+        : settings?.invoice_prefix || "FAC";
 
   return `${prefix}-${year}-${String(result.rows[0].current_value).padStart(4, "0")}`;
 }
@@ -125,6 +128,60 @@ async function syncInvoiceWithAccounting(
       amount_including_tax = EXCLUDED.amount_including_tax
     `,
     [invoiceId, companyId],
+  );
+}
+
+async function syncCreditNoteWithAccounting(
+  companyId: string,
+  creditNoteId: string,
+) {
+  // Un avoir storne le produit constaté : montants négatifs en INCOME.
+  await query(
+    `
+    INSERT INTO transactions (
+      id, company_id, type, status, date, label, category,
+      amount_excluding_tax, vat_rate, vat_amount,
+      amount_including_tax, sales_document_id, created_at
+    )
+    SELECT
+      gen_random_uuid()::text,
+      d.company_id,
+      'INCOME',
+      CASE
+        WHEN d.status = 'PAID' THEN 'PAID'
+        WHEN d.status = 'OVERDUE' THEN 'OVERDUE'
+        ELSE 'PENDING'
+      END,
+      d.issue_date,
+      'Avoir ' || d.document_number ||
+        COALESCE(' — ' || NULLIF(TRIM(c.company_name), ''), ''),
+      'Avoir',
+      -d.subtotal,
+      CASE WHEN d.subtotal > 0
+        THEN ROUND((d.vat_amount / d.subtotal) * 100, 2)
+        ELSE 0
+      END,
+      -d.vat_amount,
+      -d.total,
+      d.id,
+      NOW()
+    FROM sales_documents d
+    LEFT JOIN contacts c ON c.id = d.contact_id
+    WHERE d.id = $1
+      AND d.company_id = $2
+      AND d.document_type = 'CREDIT_NOTE'
+      AND d.status <> 'CANCELLED'
+    ON CONFLICT (sales_document_id)
+    DO UPDATE SET
+      status = EXCLUDED.status,
+      date = EXCLUDED.date,
+      label = EXCLUDED.label,
+      amount_excluding_tax = EXCLUDED.amount_excluding_tax,
+      vat_rate = EXCLUDED.vat_rate,
+      vat_amount = EXCLUDED.vat_amount,
+      amount_including_tax = EXCLUDED.amount_including_tax
+    `,
+    [creditNoteId, companyId],
   );
 }
 
@@ -262,7 +319,11 @@ export async function createSalesDocument(formData: FormData) {
         parsed.data.contactId,
         member.user_id,
         parsed.data.documentType === "QUOTE" ? "QUOTE" : "INVOICE",
-        parsed.data.documentType === "QUOTE" ? "Devis créé" : "Facture créée",
+        parsed.data.documentType === "QUOTE"
+          ? "Devis créé"
+          : parsed.data.documentType === "CREDIT_NOTE"
+            ? "Avoir créé"
+            : "Facture créée",
         `${number} — ${lineTotal.toLocaleString("fr-FR")} € TTC`,
       ],
     );
@@ -278,6 +339,11 @@ export async function createSalesDocument(formData: FormData) {
 
   if (parsed.data.documentType === "INVOICE") {
     await syncInvoiceWithAccounting(member.company_id, documentId);
+    revalidatePath("/transactions");
+  }
+
+  if (parsed.data.documentType === "CREDIT_NOTE") {
+    await syncCreditNoteWithAccounting(member.company_id, documentId);
     revalidatePath("/transactions");
   }
 
@@ -420,13 +486,17 @@ export async function updateDocumentStatus(formData: FormData) {
     UPDATE sales_documents
     SET status = $3, updated_at = NOW()
     WHERE id = $1 AND company_id = $2
-    RETURNING id, document_number, total, contact_id
+    RETURNING id, document_number, total, contact_id, document_type
     `,
     [documentId, member.company_id, status],
   );
 
   if (updated[0]) {
-    await syncInvoiceWithAccounting(member.company_id, documentId);
+    if (updated[0].document_type === "CREDIT_NOTE") {
+      await syncCreditNoteWithAccounting(member.company_id, documentId);
+    } else {
+      await syncInvoiceWithAccounting(member.company_id, documentId);
+    }
     revalidatePath("/transactions");
   }
 
@@ -578,4 +648,196 @@ export async function deleteSalesDocument(formData: FormData) {
 
   revalidatePath("/billing");
   redirect("/billing?deleted=1");
+}
+
+export async function createCreditNoteFromInvoice(formData: FormData) {
+  const member = await currentContext();
+  const invoiceId = String(formData.get("documentId") ?? "");
+  const client = await pool.connect();
+  let creditNoteId = "";
+
+  try {
+    await client.query("BEGIN");
+
+    const invoiceResult = await client.query<any>(
+      `
+      SELECT *
+      FROM sales_documents
+      WHERE id = $1
+        AND company_id = $2
+        AND document_type = 'INVOICE'
+      LIMIT 1
+      `,
+      [invoiceId, member.company_id],
+    );
+
+    const invoice = invoiceResult.rows[0];
+    if (!invoice) {
+      await client.query("ROLLBACK");
+      redirect("/billing");
+    }
+
+    creditNoteId = randomUUID();
+    const creditNumber = await nextDocumentNumber(
+      client,
+      member.company_id,
+      "CREDIT_NOTE",
+    );
+
+    await client.query(
+      `
+      INSERT INTO sales_documents (
+        id, company_id, contact_id, document_type, document_number,
+        status, issue_date, currency, notes,
+        subtotal, vat_amount, total, source_invoice_id, created_by
+      )
+      VALUES (
+        $1,$2,$3,'CREDIT_NOTE',$4,'DRAFT',CURRENT_DATE,$5,$6,
+        $7,$8,$9,$10,$11
+      )
+      `,
+      [
+        creditNoteId,
+        member.company_id,
+        invoice.contact_id,
+        creditNumber,
+        invoice.currency,
+        `Avoir relatif à la facture ${invoice.document_number}${invoice.notes ? ` — ${invoice.notes}` : ""}`.slice(0, 3000),
+        invoice.subtotal,
+        invoice.vat_amount,
+        invoice.total,
+        invoice.id,
+        member.user_id,
+      ],
+    );
+
+    await client.query(
+      `
+      INSERT INTO sales_document_items (
+        id, document_id, description, quantity, unit_price,
+        vat_rate, line_subtotal, line_vat, line_total, position
+      )
+      SELECT
+        gen_random_uuid()::text,
+        $1,
+        description,
+        quantity,
+        unit_price,
+        vat_rate,
+        line_subtotal,
+        line_vat,
+        line_total,
+        position
+      FROM sales_document_items
+      WHERE document_id = $2
+      `,
+      [creditNoteId, invoiceId],
+    );
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error(error);
+    redirect(`/billing/${invoiceId}?error=credit`);
+  } finally {
+    client.release();
+  }
+
+  await syncCreditNoteWithAccounting(member.company_id, creditNoteId);
+  revalidatePath("/billing");
+  revalidatePath("/transactions");
+  redirect(`/billing/${creditNoteId}?created=1`);
+}
+
+const paymentSchema = z.object({
+  amount: z.coerce.number().positive().max(100000000),
+  paidAt: z.string().date().optional(),
+  method: z.string().trim().max(60).optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+
+export async function recordDocumentPayment(formData: FormData) {
+  const member = await currentContext();
+  const documentId = String(formData.get("documentId") ?? "");
+
+  const parsed = paymentSchema.safeParse({
+    amount: formData.get("amount"),
+    paidAt: formData.get("paidAt") || undefined,
+    method: formData.get("method") || "",
+    notes: formData.get("notes") || "",
+  });
+
+  if (!documentId || !parsed.success) {
+    redirect(`/billing/${documentId}?error=payment`);
+  }
+
+  const documents = await query<{ id: string; total: string; document_type: string; status: string }>(
+    `
+    SELECT id, total, document_type, status
+    FROM sales_documents
+    WHERE id = $1 AND company_id = $2
+    LIMIT 1
+    `,
+    [documentId, member.company_id],
+  );
+
+  const document = documents[0];
+  if (!document || document.document_type !== "INVOICE") {
+    redirect("/billing");
+  }
+
+  await query(
+    `
+    INSERT INTO document_payments (
+      id, company_id, document_id, amount, paid_at, method, notes
+    )
+    VALUES ($1,$2,$3,$4,COALESCE($5::date, CURRENT_DATE),NULLIF($6,''),NULLIF($7,''))
+    `,
+    [
+      randomUUID(),
+      member.company_id,
+      documentId,
+      parsed.data.amount,
+      parsed.data.paidAt || null,
+      parsed.data.method || "",
+      parsed.data.notes || "",
+    ],
+  );
+
+  const sums = await query<{ paid: string }>(
+    `SELECT COALESCE(SUM(amount),0) AS paid FROM document_payments WHERE document_id = $1`,
+    [documentId],
+  );
+
+  // Solde automatique : facture intégralement réglée => Payée.
+  if (Number(sums[0]?.paid || 0) >= Number(document.total) && document.status !== "PAID") {
+    await query(
+      `UPDATE sales_documents SET status = 'PAID', updated_at = NOW() WHERE id = $1`,
+      [documentId],
+    );
+    await syncInvoiceWithAccounting(member.company_id, documentId);
+    revalidatePath("/transactions");
+  }
+
+  revalidatePath("/billing");
+  revalidatePath(`/billing/${documentId}`);
+  redirect(`/billing/${documentId}?paymentAdded=1`);
+}
+
+export async function deleteDocumentPayment(formData: FormData) {
+  const member = await currentContext();
+  const documentId = String(formData.get("documentId") ?? "");
+  const paymentId = String(formData.get("paymentId") ?? "");
+
+  await query(
+    `
+    DELETE FROM document_payments
+    WHERE id = $1 AND document_id = $2 AND company_id = $3
+    `,
+    [paymentId, documentId, member.company_id],
+  );
+
+  revalidatePath("/billing");
+  revalidatePath(`/billing/${documentId}`);
+  redirect(`/billing/${documentId}?paymentAdded=1`);
 }

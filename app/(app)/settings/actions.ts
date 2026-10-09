@@ -29,6 +29,7 @@ const companySchema = z.object({
   quoteValidityDays: z.coerce.number().int().min(1).max(365),
   quotePrefix: z.string().trim().min(2).max(10),
   invoicePrefix: z.string().trim().min(2).max(10),
+  creditPrefix: z.string().trim().min(2).max(10),
   invoiceFooter: z.string().trim().max(2000).optional(),
 });
 
@@ -55,6 +56,7 @@ export async function updateCompanySettings(formData: FormData) {
     quoteValidityDays: formData.get("quoteValidityDays") || 30,
     quotePrefix: formData.get("quotePrefix") || "DEV",
     invoicePrefix: formData.get("invoicePrefix") || "FAC",
+    creditPrefix: formData.get("creditPrefix") || "AVO",
     invoiceFooter: formData.get("invoiceFooter") || "",
   });
 
@@ -85,6 +87,7 @@ export async function updateCompanySettings(formData: FormData) {
         quote_prefix=$19,
         invoice_prefix=$20,
         invoice_footer=$21,
+        credit_prefix=$22,
         updated_at=NOW()
     WHERE id=$1
     `,
@@ -110,6 +113,7 @@ export async function updateCompanySettings(formData: FormData) {
       parsed.data.quotePrefix.toUpperCase(),
       parsed.data.invoicePrefix.toUpperCase(),
       parsed.data.invoiceFooter || null,
+      parsed.data.creditPrefix.toUpperCase(),
     ],
   );
 
