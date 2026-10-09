@@ -17,7 +17,7 @@ const statusLabels: Record<string, string> = {
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; deleted?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string; subscribed?: string }>;
 }) {
   const member = await currentContext();
   const params = await searchParams;
@@ -62,6 +62,16 @@ export default async function BillingPage({
           <p>Créez, envoyez et suivez vos documents commerciaux.</p>
         </div>
       </section>
+
+      {params.subscribed && (
+        <div className="import-alert success">
+          <strong>Paiement reçu, merci.</strong>
+          <span>
+            Votre abonnement s’active dans quelques instants. Rechargez la page
+            si le statut n’est pas encore à jour.
+          </span>
+        </div>
+      )}
 
       {params.error && (
         <div className="import-alert error">

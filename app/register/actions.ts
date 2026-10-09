@@ -56,7 +56,7 @@ export async function registerAction(formData: FormData) {
     });
 
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 3);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
     const company = await tx.company.create({
       data: {
