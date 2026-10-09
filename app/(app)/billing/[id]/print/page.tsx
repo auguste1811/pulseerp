@@ -29,6 +29,7 @@ export default async function PrintableDocument({
              co.vat_number AS issuer_vat_number,
              co.iban AS issuer_iban,
              co.bic AS issuer_bic,
+             co.logo_url AS issuer_logo_url,
              co.invoice_footer AS issuer_footer
       FROM sales_documents d
       JOIN companies co ON co.id = d.company_id
@@ -56,10 +57,19 @@ export default async function PrintableDocument({
     <main className="print-document">
       <header className="print-header">
         <div>
-          <span className="print-logo">P</span>
           <strong>{document.issuer_name}</strong>
         </div>
-        <div>
+        <div style={{ textAlign: "right" }}>
+          {document.issuer_logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={document.issuer_logo_url}
+              alt="Logo"
+              style={{ maxHeight: 60, maxWidth: 160, objectFit: "contain", marginLeft: "auto" }}
+            />
+          ) : (
+            <span className="print-logo">P</span>
+          )}
           <p>{document.document_type === "QUOTE" ? "DEVIS" : "FACTURE"}</p>
           <h1>{document.document_number}</h1>
         </div>

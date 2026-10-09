@@ -7,6 +7,7 @@ import { z } from "zod";
 import { currentContext } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
+import { LOGO_MAX_BYTES, validateLogoUpload } from "@/lib/company-logo";
 
 const companySchema = z.object({
   name: z.string().trim().min(2).max(160),
@@ -116,6 +117,46 @@ export async function updateCompanySettings(formData: FormData) {
   revalidatePath("/billing");
   revalidatePath("/dashboard");
   redirect("/settings?saved=1");
+}
+
+export async function uploadCompanyLogo(formData: FormData) {
+  const member = await requireRole("ADMIN");
+  const file = formData.get("logo");
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/settings?error=logo-empty#company");
+  }
+  if (file.size > LOGO_MAX_BYTES) {
+    redirect("/settings?error=logo-size#company");
+  }
+  const mime = file.type === "image/jpg" ? "image/jpeg" : file.type;
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const validationError = validateLogoUpload(bytes, mime);
+  if (validationError) {
+    redirect("/settings?error=logo-format#company");
+  }
+  const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+
+  await query(`UPDATE companies SET logo_url=$2, updated_at=NOW() WHERE id=$1`, [
+    member.company_id,
+    dataUrl,
+  ]);
+
+  revalidatePath("/settings");
+  revalidatePath("/billing");
+  revalidatePath("/dashboard");
+  redirect("/settings?saved=1#company");
+}
+
+export async function removeCompanyLogo() {
+  const member = await requireRole("ADMIN");
+  await query(`UPDATE companies SET logo_url=NULL, updated_at=NOW() WHERE id=$1`, [
+    member.company_id,
+  ]);
+  revalidatePath("/settings");
+  revalidatePath("/billing");
+  revalidatePath("/dashboard");
+  redirect("/settings?saved=1#company");
 }
 
 export async function updateProfile(formData: FormData) {

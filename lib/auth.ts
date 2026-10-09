@@ -66,6 +66,7 @@ export async function currentContext(options?: { allowExpired?: boolean }) {
     email: membership.user.email,
     company_id: membership.company.id,
     company_name: membership.company.name,
+    company_logo_url: (membership.company as { logoUrl?: string | null }).logoUrl ?? null,
     role: membership.role,
     subscription,
     enabled_modules: Array.from(enabledModules),

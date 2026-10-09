@@ -11,6 +11,7 @@ export default async function AppLayout({
   return (
     <EnterpriseShell
       companyName={member.company_name}
+      companyLogoUrl={member.company_logo_url ?? null}
       firstName={member.first_name}
       lastName={member.last_name}
       role={member.role}

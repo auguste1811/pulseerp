@@ -82,12 +82,14 @@ const groups = [
 
 export function AppSidebar({
   companyName,
+  companyLogoUrl,
   collapsed,
   onToggle,
   enabledModules,
   isPlatformAdmin,
 }: {
   companyName: string;
+  companyLogoUrl?: string | null;
   collapsed: boolean;
   onToggle: () => void;
   enabledModules: string[];
@@ -114,7 +116,16 @@ export function AppSidebar({
       </div>
 
       <Link href="/companies" className="enterprise-company">
-        <span>{companyName.slice(0, 1).toUpperCase()}</span>
+        {companyLogoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={companyLogoUrl}
+            alt={companyName}
+            style={{ width: 34, height: 34, objectFit: "contain", borderRadius: 8, background: "#fff" }}
+          />
+        ) : (
+          <span>{companyName.slice(0, 1).toUpperCase()}</span>
+        )}
         <div>
           <strong>{companyName}</strong>
           <small>Espace principal</small>

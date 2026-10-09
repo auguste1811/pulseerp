@@ -3,8 +3,10 @@ import { query } from "@/lib/db";
 import { canManageCompanySettings } from "@/lib/permissions";
 import {
   changePassword,
+  removeCompanyLogo,
   updateCompanySettings,
   updateProfile,
+  uploadCompanyLogo,
 } from "./actions";
 import styles from "./settings.module.css";
 
@@ -61,7 +63,13 @@ export default async function SettingsPage({
               ? "Cette adresse email est déjà utilisée."
               : feedback.passwordError === "current"
                 ? "Le mot de passe actuel est incorrect."
-                : "Vérifiez les informations saisies."}
+                : feedback.error === "logo-size"
+                  ? "Logo trop lourd : 1,5 Mo maximum."
+                  : feedback.error === "logo-format"
+                    ? "Format accepté : PNG ou JPEG uniquement."
+                    : feedback.error === "logo-empty"
+                      ? "Sélectionnez un fichier image."
+                      : "Vérifiez les informations saisies."}
           </span>
         </div>
       )}
@@ -83,6 +91,90 @@ export default async function SettingsPage({
                   documents commerciaux.
                 </p>
               </header>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 16,
+                  alignItems: "center",
+                  padding: "14px",
+                  border: "1px solid #eceef3",
+                  borderRadius: 12,
+                  background: "#fbfcfe",
+                  marginBottom: 16,
+                }}
+              >
+                {company.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={company.logo_url}
+                    alt="Logo de l'entreprise"
+                    style={{
+                      width: 72,
+                      height: 72,
+                      objectFit: "contain",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7ee",
+                      background: "#fff",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 12,
+                      border: "1px dashed #c9cede",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#858a9c",
+                      fontSize: 11,
+                    }}
+                  >
+                    Sans logo
+                  </div>
+                )}
+                <div style={{ display: "grid", gap: 8 }}>
+                  <form
+                    action={uploadCompanyLogo}
+                    encType="multipart/form-data"
+                    style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+                  >
+                    <input
+                      type="file"
+                      name="logo"
+                      accept="image/png,image/jpeg"
+                      required
+                      style={{ fontSize: 10 }}
+                    />
+                    <button className={styles.saveButton} type="submit">
+                      Importer le logo
+                    </button>
+                  </form>
+                  {company.logo_url && (
+                    <form action={removeCompanyLogo}>
+                      <button
+                        type="submit"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#b04a4a",
+                          fontSize: 10,
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        Supprimer le logo
+                      </button>
+                    </form>
+                  )}
+                  <small style={{ color: "#858a9c", fontSize: 9 }}>
+                    PNG ou JPEG, 1,5 Mo max. Affiché sur le site et en haut à
+                    droite des devis et factures.
+                  </small>
+                </div>
+              </div>
 
               <form action={updateCompanySettings} className={styles.form}>
                 <div className={styles.row}>

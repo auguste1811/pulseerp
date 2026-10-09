@@ -1,4 +1,10 @@
+import { deflateSync } from "node:zlib";
 import { query } from "@/lib/db";
+import {
+  decodePngToRgb,
+  jpegDimensions,
+  parseLogoDataUrl,
+} from "@/lib/company-logo";
 
 export type InvoiceEmailItem = {
   description: string;
@@ -43,6 +49,7 @@ export type InvoiceEmailData = {
     iban: string | null;
     bic: string | null;
     footer: string | null;
+    logoUrl: string | null;
   };
   items: InvoiceEmailItem[];
 };
@@ -68,6 +75,7 @@ export async function loadInvoiceEmailData(
              co.vat_number AS issuer_vat_number,
              co.iban AS issuer_iban,
              co.bic AS issuer_bic,
+             co.logo_url AS issuer_logo_url,
              co.invoice_footer AS issuer_footer
       FROM sales_documents d
       JOIN companies co ON co.id = d.company_id
@@ -131,6 +139,7 @@ export async function loadInvoiceEmailData(
       iban: document.issuer_iban,
       bic: document.issuer_bic,
       footer: document.issuer_footer,
+      logoUrl: document.issuer_logo_url ?? null,
     },
     items: items.map((item: any) => ({
       description: String(item.description || ""),
@@ -182,7 +191,26 @@ function wrap(value: string, width: number): string[] {
   return lines.length ? lines : [""];
 }
 
+type PdfLogoImage =
+  | { kind: "jpeg"; bytes: Buffer; width: number; height: number }
+  | { kind: "raw"; pixels: Buffer; width: number; height: number };
+
+function preparePdfLogo(logoUrl: string | null | undefined): PdfLogoImage | null {
+  const parsed = parseLogoDataUrl(logoUrl);
+  if (!parsed) return null;
+  if (parsed.mime === "image/jpeg") {
+    const dims = jpegDimensions(parsed.bytes);
+    if (!dims) return null;
+    return { kind: "jpeg", bytes: parsed.bytes, width: dims.width, height: dims.height };
+  }
+  const decoded = decodePngToRgb(parsed.bytes);
+  if (!decoded) return null;
+  return { kind: "raw", pixels: decoded.rgb, width: decoded.width, height: decoded.height };
+}
+
 export function buildInvoicePdf(invoice: InvoiceEmailData): Buffer {
+  const logo = preparePdfLogo(invoice.issuer.logoUrl);
+  const docLabel = invoice.documentType === "QUOTE" ? "DEVIS" : "FACTURE";
   const pages: string[][] = [[]];
   let pageIndex = 0;
   let y = 790;
@@ -200,7 +228,7 @@ export function buildInvoicePdf(invoice: InvoiceEmailData): Buffer {
   };
 
   addLine(invoice.issuer.legalName || invoice.issuer.name, 17, 48, true);
-  addLine(`FACTURE ${invoice.documentNumber}`, 17, 335, true);
+  addLine(`${docLabel} ${invoice.documentNumber}`, 17, 335, true);
   y -= 7;
 
   addLine("EMETTEUR", 9, 48, true);
@@ -277,6 +305,7 @@ export function buildInvoicePdf(invoice: InvoiceEmailData): Buffer {
   }
 
   const objects: string[] = [];
+  const binaryObjects = new Map<number, Buffer>();
   const setObject = (id: number, value: string) => {
     objects[id] = value;
   };
@@ -285,19 +314,54 @@ export function buildInvoicePdf(invoice: InvoiceEmailData): Buffer {
   setObject(3, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
   setObject(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
 
+  // Logo en haut à droite (max 120x60, ratio conservé)
+  let logoObjectId: number | null = null;
+  let logoDrawWidth = 0;
+  let logoDrawHeight = 0;
+  if (logo) {
+    const maxW = 120;
+    const maxH = 60;
+    const ratio = Math.min(maxW / logo.width, maxH / logo.height);
+    logoDrawWidth = Math.max(20, Math.round(logo.width * ratio));
+    logoDrawHeight = Math.max(10, Math.round(logo.height * ratio));
+    logoObjectId = 5;
+    if (logo.kind === "jpeg") {
+      const header = `<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logo.bytes.length} >>\nstream\n`;
+      const footer = `\nendstream`;
+      binaryObjects.set(logoObjectId, Buffer.concat([Buffer.from(header, "binary"), logo.bytes, Buffer.from(footer, "binary")]));
+    } else {
+      const compressed = deflateSync(logo.pixels);
+      const header = `<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${compressed.length} >>\nstream\n`;
+      const footer = `\nendstream`;
+      binaryObjects.set(logoObjectId, Buffer.concat([Buffer.from(header, "binary"), compressed, Buffer.from(footer, "binary")]));
+    }
+  }
+
   const pageIds: number[] = [];
-  let nextId = 5;
-  for (const commands of pages) {
-    const stream = commands.join("\n");
+  let nextId = logoObjectId ? 6 : 5;
+  for (const [index, commands] of pages.entries()) {
+    const allCommands = [...commands];
+    if (index === 0 && logoObjectId) {
+      // Haut à droite : x=427 (595-48-120), y=752 (790-38)
+      const x = 595 - 48 - logoDrawWidth;
+      const yPos = 842 - 48 - logoDrawHeight;
+      allCommands.unshift(
+        `q ${logoDrawWidth} 0 0 ${logoDrawHeight} ${x} ${yPos} cm /ImLogo Do Q`,
+      );
+    }
+    const stream = allCommands.join("\n");
     const contentId = nextId++;
     const pageId = nextId++;
     setObject(
       contentId,
       `<< /Length ${Buffer.byteLength(stream, "binary")} >>\nstream\n${stream}\nendstream`,
     );
+    const resources = logoObjectId
+      ? `<< /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /ImLogo ${logoObjectId} 0 R >> >>`
+      : `<< /Font << /F1 3 0 R /F2 4 0 R >> >>`;
     setObject(
       pageId,
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentId} 0 R >>`,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources ${resources} /Contents ${contentId} 0 R >>`,
     );
     pageIds.push(pageId);
   }
@@ -307,21 +371,36 @@ export function buildInvoicePdf(invoice: InvoiceEmailData): Buffer {
     `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`,
   );
 
-  let output = "%PDF-1.4\n";
+  let header = "%PDF-1.4\n";
+  const parts: Buffer[] = [Buffer.from(header, "binary")];
   const offsets: number[] = [0];
-  for (let id = 1; id < objects.length; id += 1) {
-    offsets[id] = Buffer.byteLength(output, "binary");
-    output += `${id} 0 obj\n${objects[id]}\nendobj\n`;
+  const maxId = Math.max(objects.length - 1, logoObjectId ?? 0);
+  let byteLen = Buffer.byteLength(header, "binary");
+  const emitObject = (id: number, body: Buffer) => {
+    offsets[id] = byteLen;
+    const pre = Buffer.from(`${id} 0 obj\n`, "binary");
+    const post = Buffer.from(`\nendobj\n`, "binary");
+    parts.push(pre, body, post);
+    byteLen += pre.length + body.length + post.length;
+  };
+  for (let id = 1; id <= maxId; id += 1) {
+    if (binaryObjects.has(id)) {
+      emitObject(id, binaryObjects.get(id)!);
+    } else if (objects[id]) {
+      emitObject(id, Buffer.from(objects[id], "binary"));
+    }
   }
 
-  const xrefOffset = Buffer.byteLength(output, "binary");
-  output += `xref\n0 ${objects.length}\n0000000000 65535 f \n`;
-  for (let id = 1; id < objects.length; id += 1) {
-    output += `${String(offsets[id]).padStart(10, "0")} 00000 n \n`;
+  const xrefOffset = byteLen;
+  const total = maxId + 1;
+  let trailer = `xref\n0 ${total}\n0000000000 65535 f \n`;
+  for (let id = 1; id <= maxId; id += 1) {
+    trailer += `${String(offsets[id] ?? 0).padStart(10, "0")} 00000 n \n`;
   }
-  output += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  trailer += `trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  parts.push(Buffer.from(trailer, "binary"));
 
-  return Buffer.from(output, "binary");
+  return Buffer.concat(parts);
 }
 
 function escapeHtml(value: unknown): string {
@@ -338,12 +417,16 @@ export function buildInvoiceEmailHtml(
   message: string,
 ): string {
   const safeMessage = escapeHtml(message).replace(/\n/g, "<br />");
+  const docLabel = invoice.documentType === "QUOTE" ? "Devis" : "Facture";
+  const logoImg =
+    invoice.issuer.logoUrl && invoice.issuer.logoUrl.startsWith("data:image/")
+      ? `<img src="${invoice.issuer.logoUrl}" alt="Logo" style="max-height:48px;max-width:160px;object-fit:contain;background:#fff;border-radius:8px;padding:4px;" />`
+      : `<div style="font-size:22px;font-weight:800">PulseERP</div>`;
   return `
   <div style="background:#f5f6fa;padding:32px 16px;font-family:Arial,sans-serif;color:#242737">
     <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #e4e6ee;border-radius:16px;overflow:hidden">
       <div style="padding:24px 28px;background:linear-gradient(135deg,#17162a,#4f3bd8);color:#fff">
-        <div style="font-size:22px;font-weight:800">PulseERP</div>
-        <div style="margin-top:8px;font-size:13px;opacity:.86">Facture ${escapeHtml(invoice.documentNumber)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">${logoImg}<div style="font-size:13px;opacity:.86">${docLabel} ${escapeHtml(invoice.documentNumber)}</div></div>
       </div>
       <div style="padding:28px">
         <p style="margin:0 0 18px;line-height:1.65">Bonjour ${escapeHtml(invoice.client.name)},</p>
@@ -354,7 +437,7 @@ export function buildInvoiceEmailHtml(
           <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:10px"><span>Échéance</span><strong>${escapeHtml(formatDate(invoice.dueDate))}</strong></div>
           <div style="display:flex;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid #e2e4ea;font-size:18px"><span>Total TTC</span><strong>${escapeHtml(formatMoney(invoice.total))}</strong></div>
         </div>
-        <p style="margin:22px 0 0;color:#737889;font-size:13px;line-height:1.6">La facture PDF est jointe à cet email.</p>
+        <p style="margin:22px 0 0;color:#737889;font-size:13px;line-height:1.6">Le document PDF est joint à cet email.</p>
       </div>
       <div style="padding:18px 28px;background:#f7f8fb;color:#868b9a;font-size:12px">
         Envoyé par ${escapeHtml(invoice.issuer.legalName || invoice.issuer.name)} avec PulseERP.

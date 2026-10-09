@@ -7,6 +7,7 @@ import { AppTopbar } from "./app-topbar";
 export function EnterpriseShell({
   children,
   companyName,
+  companyLogoUrl,
   firstName,
   lastName,
   role,
@@ -15,6 +16,7 @@ export function EnterpriseShell({
 }: {
   children: React.ReactNode;
   companyName: string;
+  companyLogoUrl: string | null;
   firstName: string;
   lastName: string;
   role: string;
@@ -27,6 +29,7 @@ export function EnterpriseShell({
     <div className={`enterprise-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
       <AppSidebar
         companyName={companyName}
+        companyLogoUrl={companyLogoUrl}
         collapsed={collapsed}
         onToggle={() => setCollapsed((value) => !value)}
         enabledModules={enabledModules}

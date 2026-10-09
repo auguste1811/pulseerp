@@ -40,7 +40,7 @@ async function companyIdFromCustomer(
 ): Promise<string | null> {
   if (!customerId) return null;
 
-  const stored = await prisma.subscription.findUnique({
+  const stored = await prisma.subscription.findFirst({
     where: { stripeCustomerId: customerId },
     select: { companyId: true },
   });

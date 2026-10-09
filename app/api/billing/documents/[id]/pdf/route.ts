@@ -13,12 +13,13 @@ export async function GET(
   const { id } = await params;
   const invoice = await loadInvoiceEmailData(id, member.company_id);
 
-  if (!invoice || invoice.documentType !== "INVOICE") {
-    return NextResponse.json({ error: "Facture introuvable" }, { status: 404 });
+  if (!invoice || (invoice.documentType !== "INVOICE" && invoice.documentType !== "QUOTE")) {
+    return NextResponse.json({ error: "Document introuvable" }, { status: 404 });
   }
 
   const pdf = buildInvoicePdf(invoice);
-  const filename = `facture-${invoice.documentNumber.replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`;
+  const prefix = invoice.documentType === "QUOTE" ? "devis" : "facture";
+  const filename = `${prefix}-${invoice.documentNumber.replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`;
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
