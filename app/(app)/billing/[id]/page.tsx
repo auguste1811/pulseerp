@@ -10,6 +10,9 @@ import { InvoiceEmailShare } from "./invoice-email-share";
 import { QuoteSignShare } from "./quote-sign-share";
 import {
   addDocumentItem,
+  addDocumentDiscount,
+  deleteDocumentItem,
+  updateDocumentItem,
   convertQuoteToInvoice,
   createCreditNoteFromInvoice,
   deleteDocumentPayment,
@@ -205,24 +208,54 @@ export default async function BillingDetail({
                 <span>Description</span><span>Qté</span><span>PU HT</span><span>TVA</span><span>Total TTC</span>
               </div>
               {items.map((item) => (
-                <div className="invoice-line" key={item.id}>
-                  <strong>{item.description}</strong>
-                  <span>{Number(item.quantity).toLocaleString("fr-FR")}</span>
-                  <span>{euro(Number(item.unit_price))}</span>
-                  <span>{Number(item.vat_rate).toLocaleString("fr-FR")} %</span>
-                  <strong>{euro(Number(item.line_total))}</strong>
+                <div key={item.id}>
+                  <div className="invoice-line">
+                    <strong>{item.description}</strong>
+                    <span>{Number(item.quantity).toLocaleString("fr-FR")}</span>
+                    <span>{euro(Number(item.unit_price))}</span>
+                    <span>{Number(item.vat_rate).toLocaleString("fr-FR")} %</span>
+                    <strong>{euro(Number(item.line_total))}</strong>
+                  </div>
+                  {document.status === "DRAFT" && (
+                    <div className="invoice-line-editor">
+                      <form action={updateDocumentItem} className="add-line-form">
+                        <input type="hidden" name="documentId" value={document.id} />
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <input name="description" aria-label="Description" defaultValue={item.description} required />
+                        <input name="quantity" aria-label="Quantité" type="number" step="0.01" min="0.01" defaultValue={String(item.quantity)} required />
+                        <input name="unitPrice" aria-label="Prix HT (négatif pour une remise)" type="number" step="0.01" defaultValue={String(item.unit_price)} required />
+                        <input name="vatRate" aria-label="TVA" type="number" step="0.1" min="0" defaultValue={String(item.vat_rate)} required />
+                        <button className="secondary-action" type="submit">Modifier</button>
+                      </form>
+                      <form action={deleteDocumentItem}>
+                        <input type="hidden" name="documentId" value={document.id} />
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <button className="danger-action" type="submit">Supprimer la ligne</button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-
-            <form action={addDocumentItem} className="add-line-form">
-              <input type="hidden" name="documentId" value={document.id} />
-              <input name="description" placeholder="Nouvelle prestation" required />
-              <input name="quantity" type="number" step="0.01" min="0.01" defaultValue="1" required />
-              <input name="unitPrice" type="number" step="0.01" min="0" placeholder="Prix HT" required />
-              <input name="vatRate" type="number" step="0.1" min="0" defaultValue="20" />
-              <button className="secondary-action" type="submit">Ajouter</button>
-            </form>
+            {document.status === "DRAFT" && (
+              <>
+                <form action={addDocumentItem} className="add-line-form">
+                  <input type="hidden" name="documentId" value={document.id} />
+                  <input name="description" placeholder="Nouvelle prestation" required />
+                  <input name="quantity" type="number" step="0.01" min="0.01" defaultValue="1" required />
+                  <input name="unitPrice" type="number" step="0.01" min="0" placeholder="Prix HT" required />
+                  <input name="vatRate" type="number" step="0.1" min="0" defaultValue="20" />
+                  <button className="secondary-action" type="submit">Ajouter une ligne</button>
+                </form>
+                <form action={addDocumentDiscount} className="add-line-form">
+                  <input type="hidden" name="documentId" value={document.id} />
+                  <input name="description" placeholder="Remise commerciale" defaultValue="Remise commerciale" required />
+                  <input name="amount" type="number" step="0.01" min="0.01" placeholder="Montant de remise HT" required />
+                  <input name="vatRate" type="number" step="0.1" min="0" defaultValue="20" aria-label="TVA appliquée à la remise" />
+                  <button className="secondary-action" type="submit">Ajouter une remise</button>
+                </form>
+              </>
+            )}
           </article>
 
           {document.notes && (
@@ -236,6 +269,9 @@ export default async function BillingDetail({
         <aside className="billing-sidebar">
           <article className="dashboard-panel billing-totals">
             <h2>Total</h2>
+            {items.some((item) => Number(item.unit_price) < 0) && (
+              <div><span>Remises HT</span><strong>−{euro(items.reduce((sum, item) => sum + (Number(item.unit_price) < 0 ? -Number(item.line_subtotal) : 0), 0))}</strong></div>
+            )}
             <div><span>Sous-total HT</span><strong>{euro(Number(document.subtotal))}</strong></div>
             <div><span>TVA</span><strong>{euro(Number(document.vat_amount))}</strong></div>
             <div className="grand-total"><span>Total TTC</span><strong>{euro(Number(document.total))}</strong></div>
