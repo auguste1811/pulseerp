@@ -286,9 +286,9 @@ export async function addDocumentItem(formData: FormData) {
     redirect(`/billing/${documentId}?error=item`);
   }
 
-  const document = await query<{ id: string }>(
+  const document = await query<{ id: string; status: string }>(
     `
-    SELECT id FROM sales_documents
+    SELECT id, status FROM sales_documents
     WHERE id = $1 AND company_id = $2
     LIMIT 1
     `,
@@ -296,6 +296,7 @@ export async function addDocumentItem(formData: FormData) {
   );
 
   if (!document[0]) redirect("/billing");
+  if (document[0].status !== "DRAFT") redirect(`/billing/${documentId}?error=locked`);
 
   const subtotal = parsed.data.quantity * parsed.data.unitPrice;
   const vat = subtotal * parsed.data.vatRate / 100;
@@ -367,6 +368,125 @@ export async function addDocumentItem(formData: FormData) {
   }
 
   revalidatePath(`/billing/${documentId}`);
+  revalidatePath("/billing");
+  redirect(`/billing/${documentId}?itemAdded=1`);
+}
+
+
+async function recalculateDocumentTotals(documentId: string, companyId: string) {
+  await query(
+    `
+    UPDATE sales_documents
+    SET subtotal = totals.subtotal, vat_amount = totals.vat_amount,
+        total = totals.total, updated_at = NOW()
+    FROM (
+      SELECT COALESCE(SUM(line_subtotal),0) AS subtotal,
+             COALESCE(SUM(line_vat),0) AS vat_amount,
+             COALESCE(SUM(line_total),0) AS total
+      FROM sales_document_items WHERE document_id = $1
+    ) totals
+    WHERE sales_documents.id = $1 AND sales_documents.company_id = $2
+    `,
+    [documentId, companyId],
+  );
+}
+
+export async function updateDocumentItem(formData: FormData) {
+  const member = await currentContext();
+  const documentId = String(formData.get("documentId") ?? "");
+  const itemId = String(formData.get("itemId") ?? "");
+  const schema = z.object({
+    description: z.string().trim().min(1).max(500),
+    quantity: z.coerce.number().positive().max(100000),
+    unitPrice: z.coerce.number().min(-100000000).max(100000000),
+    vatRate: z.coerce.number().min(0).max(100),
+  });
+  const parsed = schema.safeParse({
+    description: formData.get("description"), quantity: formData.get("quantity"),
+    unitPrice: formData.get("unitPrice"), vatRate: formData.get("vatRate"),
+  });
+  if (!documentId || !itemId || !parsed.success) redirect(`/billing/${documentId}?error=item`);
+  const documents = await query<{ id: string; status: string }>(
+    `SELECT id, status FROM sales_documents WHERE id=$1 AND company_id=$2 LIMIT 1`,
+    [documentId, member.company_id],
+  );
+  if (!documents[0]) redirect("/billing");
+  if (documents[0].status !== "DRAFT") redirect(`/billing/${documentId}?error=locked`);
+  const existing = await query<{ id: string }>(
+    `SELECT id FROM sales_document_items WHERE id=$1 AND document_id=$2 LIMIT 1`,
+    [itemId, documentId],
+  );
+  if (!existing[0]) redirect(`/billing/${documentId}?error=item`);
+  const subtotal = parsed.data.quantity * parsed.data.unitPrice;
+  const vat = subtotal * parsed.data.vatRate / 100;
+  await query(
+    `UPDATE sales_document_items
+     SET description=$3, quantity=$4, unit_price=$5, vat_rate=$6,
+         line_subtotal=$7, line_vat=$8, line_total=$9
+     WHERE id=$1 AND document_id=$2`,
+    [itemId, documentId, parsed.data.description, parsed.data.quantity,
+      parsed.data.unitPrice, parsed.data.vatRate, subtotal, vat, subtotal + vat],
+  );
+  await recalculateDocumentTotals(documentId, member.company_id);
+  revalidatePath(`/billing/${documentId}`);
+  revalidatePath(`/billing/${documentId}/print`);
+  revalidatePath("/billing");
+  redirect(`/billing/${documentId}?saved=1`);
+}
+
+export async function deleteDocumentItem(formData: FormData) {
+  const member = await currentContext();
+  const documentId = String(formData.get("documentId") ?? "");
+  const itemId = String(formData.get("itemId") ?? "");
+  const documents = await query<{ id: string; status: string }>(
+    `SELECT id, status FROM sales_documents WHERE id=$1 AND company_id=$2 LIMIT 1`,
+    [documentId, member.company_id],
+  );
+  if (!documents[0]) redirect("/billing");
+  if (documents[0].status !== "DRAFT") redirect(`/billing/${documentId}?error=locked`);
+  await query(`DELETE FROM sales_document_items WHERE id=$1 AND document_id=$2`, [itemId, documentId]);
+  await recalculateDocumentTotals(documentId, member.company_id);
+  revalidatePath(`/billing/${documentId}`);
+  revalidatePath(`/billing/${documentId}/print`);
+  revalidatePath("/billing");
+  redirect(`/billing/${documentId}?saved=1`);
+}
+
+export async function addDocumentDiscount(formData: FormData) {
+  const member = await currentContext();
+  const documentId = String(formData.get("documentId") ?? "");
+  const schema = z.object({
+    description: z.string().trim().min(1).max(500),
+    amount: z.coerce.number().positive().max(100000000),
+    vatRate: z.coerce.number().min(0).max(100),
+  });
+  const parsed = schema.safeParse({
+    description: formData.get("description") || "Remise commerciale",
+    amount: formData.get("amount"), vatRate: formData.get("vatRate"),
+  });
+  if (!documentId || !parsed.success) redirect(`/billing/${documentId}?error=item`);
+  const documents = await query<{ id: string; status: string }>(
+    `SELECT id, status FROM sales_documents WHERE id=$1 AND company_id=$2 LIMIT 1`,
+    [documentId, member.company_id],
+  );
+  if (!documents[0]) redirect("/billing");
+  if (documents[0].status !== "DRAFT") redirect(`/billing/${documentId}?error=locked`);
+  const discount = -parsed.data.amount;
+  const vat = discount * parsed.data.vatRate / 100;
+  const position = await query<{ next_position: number }>(
+    `SELECT COALESCE(MAX(position),0)+1 AS next_position FROM sales_document_items WHERE document_id=$1`,
+    [documentId],
+  );
+  await query(
+    `INSERT INTO sales_document_items
+      (id, document_id, description, quantity, unit_price, vat_rate, line_subtotal, line_vat, line_total, position)
+     VALUES ($1,$2,$3,1,$4,$5,$4,$6,$7,$8)`,
+    [randomUUID(), documentId, parsed.data.description, discount, parsed.data.vatRate, vat,
+      discount + vat, position[0].next_position],
+  );
+  await recalculateDocumentTotals(documentId, member.company_id);
+  revalidatePath(`/billing/${documentId}`);
+  revalidatePath(`/billing/${documentId}/print`);
   revalidatePath("/billing");
   redirect(`/billing/${documentId}?itemAdded=1`);
 }
